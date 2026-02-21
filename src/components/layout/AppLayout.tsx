@@ -5,12 +5,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/hooks/use-notifications";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { data: notifications = [] } = useNotifications(profile?.fullName);
+  const { data: notifications = [] } = useNotifications(profile?.email);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (

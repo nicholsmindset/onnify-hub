@@ -1,98 +1,75 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SignIn } from "@clerk/clerk-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { LogIn, Play } from "lucide-react";
+import { Play } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signInDemo } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { signInDemo, isSignedIn } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await signIn(email, password);
-      toast.success("Welcome back!");
-      navigate("/");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Login failed";
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (isSignedIn) {
+    navigate("/");
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-bold text-lg">O</span>
-          </div>
-          <CardTitle className="text-2xl font-display">ONNIFY WORKS</CardTitle>
-          <CardDescription>Sign in to your operations hub</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@onnify.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+      <div className="w-full max-w-md space-y-4">
+        <Card>
+          <CardHeader className="text-center">
+            <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-4">
+              <span className="text-primary-foreground font-bold text-lg">O</span>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              <LogIn className="h-4 w-4 mr-2" />
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
-          </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              signInDemo();
-              toast.success("Welcome to Demo Mode!");
-              navigate("/");
-            }}
-          >
-            <Play className="h-4 w-4 mr-2" />
-            Explore Demo (No Login Required)
+            <CardTitle className="text-2xl font-display">ONNIFY WORKS</CardTitle>
+            <CardDescription>Sign in to your operations hub</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <SignIn
+              routing="hash"
+              afterSignInUrl="/"
+              appearance={{
+                elements: {
+                  rootBox: "w-full",
+                  card: "shadow-none p-0 w-full",
+                  headerTitle: "hidden",
+                  headerSubtitle: "hidden",
+                  socialButtonsBlockButton: "border border-border",
+                  formButtonPrimary: "bg-primary hover:bg-primary/90",
+                  footerAction: "hidden",
+                },
+              }}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+        </div>
+
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            signInDemo();
+            toast.success("Welcome to Demo Mode!");
+            navigate("/");
+          }}
+        >
+          <Play className="h-4 w-4 mr-2" />
+          Explore Demo (No Login Required)
+        </Button>
+
+        <div className="text-center text-sm text-muted-foreground">
+          Don't have an account?{" "}
+          <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/register")}>
+            Register
           </Button>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/register")}>
-              Register
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
