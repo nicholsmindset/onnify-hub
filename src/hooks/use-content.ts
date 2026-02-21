@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { ContentItem, mapContentItem, toContentItemRow } from "@/types";
+import { isDemoMode, DEMO_CONTENT } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 interface ContentFilters {
@@ -15,6 +16,16 @@ export function useContent(filters?: ContentFilters) {
   return useQuery({
     queryKey: ["content", filters],
     queryFn: async (): Promise<ContentItem[]> => {
+      if (isDemoMode()) {
+        let results = [...DEMO_CONTENT];
+        if (filters?.assignee && filters.assignee !== "all") results = results.filter(c => c.assignedTo === filters.assignee);
+        if (filters?.market && filters.market !== "all") results = results.filter(c => c.market === filters.market);
+        if (filters?.clientId) results = results.filter(c => c.clientId === filters.clientId);
+        if (filters?.status && filters.status !== "all") results = results.filter(c => c.status === filters.status);
+        if (filters?.contentType && filters.contentType !== "all") results = results.filter(c => c.contentType === filters.contentType);
+        return results;
+      }
+
       let query = supabase
         .from("content_with_client")
         .select("*")

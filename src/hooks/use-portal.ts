@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { PortalAccess, mapPortalAccess, toPortalAccessRow } from "@/types";
+import { isDemoMode } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 export function usePortalAccessList() {
   return useQuery({
     queryKey: ["portal_access"],
     queryFn: async (): Promise<PortalAccess[]> => {
+      if (isDemoMode()) {
+        return [
+          { id: "pa1", clientId: "c1", accessToken: "demo-token-acme-001", contactEmail: "john.tan@acmecorp.sg", contactName: "John Tan", isActive: true, lastAccessedAt: new Date(Date.now() - 86400000).toISOString() },
+          { id: "pa2", clientId: "c4", accessToken: "demo-token-nova-001", contactEmail: "rina@novapay.id", contactName: "Rina Dewi", isActive: true },
+          { id: "pa3", clientId: "c3", accessToken: "demo-token-tech-001", contactEmail: "mike@techstart.io", contactName: "Mike Chen", isActive: false },
+        ];
+      }
       const { data, error } = await supabase
         .from("portal_access")
         .select("*")

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Client, mapClient, toClientRow } from "@/types";
+import { isDemoMode, DEMO_CLIENTS } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 interface ClientFilters {
@@ -13,6 +14,14 @@ export function useClients(filters?: ClientFilters) {
   return useQuery({
     queryKey: ["clients", filters],
     queryFn: async (): Promise<Client[]> => {
+      if (isDemoMode()) {
+        let results = [...DEMO_CLIENTS];
+        if (filters?.market && filters.market !== "all") results = results.filter(c => c.market === filters.market);
+        if (filters?.status && filters.status !== "all") results = results.filter(c => c.status === filters.status);
+        if (filters?.search) { const s = filters.search.toLowerCase(); results = results.filter(c => c.companyName.toLowerCase().includes(s) || c.clientId.toLowerCase().includes(s)); }
+        return results;
+      }
+
       let query = supabase
         .from("clients")
         .select("*")
@@ -41,6 +50,11 @@ export function useClient(id: string | undefined) {
   return useQuery({
     queryKey: ["clients", id],
     queryFn: async (): Promise<Client> => {
+      if (isDemoMode()) {
+        const found = DEMO_CLIENTS.find(c => c.id === id);
+        if (!found) throw new Error("Client not found");
+        return found;
+      }
       const { data, error } = await supabase
         .from("clients")
         .select("*")

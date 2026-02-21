@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Deliverable, mapDeliverable, toDeliverableRow } from "@/types";
+import { isDemoMode, DEMO_DELIVERABLES } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 interface DeliverableFilters {
@@ -13,6 +14,14 @@ export function useDeliverables(filters?: DeliverableFilters) {
   return useQuery({
     queryKey: ["deliverables", filters],
     queryFn: async (): Promise<Deliverable[]> => {
+      if (isDemoMode()) {
+        let results = [...DEMO_DELIVERABLES];
+        if (filters?.assignee && filters.assignee !== "all") results = results.filter(d => d.assignedTo === filters.assignee);
+        if (filters?.market && filters.market !== "all") results = results.filter(d => d.market === filters.market);
+        if (filters?.clientId) results = results.filter(d => d.clientId === filters.clientId);
+        return results;
+      }
+
       let query = supabase
         .from("deliverables_with_client")
         .select("*")
@@ -39,6 +48,11 @@ export function useDeliverable(id: string | undefined) {
   return useQuery({
     queryKey: ["deliverables", id],
     queryFn: async (): Promise<Deliverable> => {
+      if (isDemoMode()) {
+        const found = DEMO_DELIVERABLES.find(d => d.id === id);
+        if (!found) throw new Error("Deliverable not found");
+        return found;
+      }
       const { data, error } = await supabase
         .from("deliverables_with_client")
         .select("*")

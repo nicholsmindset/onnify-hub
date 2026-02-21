@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Invoice, mapInvoice, toInvoiceRow } from "@/types";
+import { isDemoMode, DEMO_INVOICES } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 interface InvoiceFilters {
@@ -13,6 +14,14 @@ export function useInvoices(filters?: InvoiceFilters) {
   return useQuery({
     queryKey: ["invoices", filters],
     queryFn: async (): Promise<Invoice[]> => {
+      if (isDemoMode()) {
+        let results = [...DEMO_INVOICES];
+        if (filters?.status && filters.status !== "all") results = results.filter(i => i.status === filters.status);
+        if (filters?.market && filters.market !== "all") results = results.filter(i => i.market === filters.market);
+        if (filters?.clientId) results = results.filter(i => i.clientId === filters.clientId);
+        return results;
+      }
+
       let query = supabase
         .from("invoices_with_client")
         .select("*")

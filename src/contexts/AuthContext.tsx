@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { UserProfile, UserRole, mapUserProfile } from "@/types";
+import { DEMO_PROFILE, isDemoMode, enableDemoMode, disableDemoMode } from "@/lib/demo-data";
 import type { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -8,9 +9,11 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   isLoading: boolean;
+  isDemo: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInDemo: () => void;
   hasRole: (role: UserRole | UserRole[]) => boolean;
 }
 
@@ -21,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -33,6 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setIsDemo(true);
+      setProfile(DEMO_PROFILE);
+      setSession({ user: { id: "demo-user-001" } } as Session);
+      setUser({ id: "demo-user-001", email: "demo@onnify.com" } as User);
+      setIsLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
@@ -80,7 +93,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInDemo = () => {
+    enableDemoMode();
+    setIsDemo(true);
+    setProfile(DEMO_PROFILE);
+    setSession({ user: { id: "demo-user-001" } } as Session);
+    setUser({ id: "demo-user-001", email: "demo@onnify.com" } as User);
+  };
+
   const signOut = async () => {
+    if (isDemo) {
+      disableDemoMode();
+      setIsDemo(false);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      return;
+    }
     await supabase.auth.signOut();
     setProfile(null);
   };
@@ -92,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, signIn, signUp, signOut, hasRole }}>
+    <AuthContext.Provider value={{ session, user, profile, isLoading, isDemo, signIn, signUp, signOut, signInDemo, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Task, mapTask, toTaskRow } from "@/types";
+import { isDemoMode, DEMO_TASKS } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 interface TaskFilters {
@@ -13,6 +14,14 @@ export function useTasks(filters?: TaskFilters) {
   return useQuery({
     queryKey: ["tasks", filters],
     queryFn: async (): Promise<Task[]> => {
+      if (isDemoMode()) {
+        let results = [...DEMO_TASKS];
+        if (filters?.assignee && filters.assignee !== "all") results = results.filter(t => t.assignedTo === filters.assignee);
+        if (filters?.category && filters.category !== "all") results = results.filter(t => t.category === filters.category);
+        if (filters?.clientId) results = results.filter(t => t.clientId === filters.clientId);
+        return results;
+      }
+
       let query = supabase
         .from("tasks_with_relations")
         .select("*")

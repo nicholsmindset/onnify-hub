@@ -4,12 +4,19 @@ import {
   NotificationRule, mapNotificationRule, toNotificationRuleRow,
   Notification, mapNotification,
 } from "@/types";
+import { isDemoMode } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 export function useNotificationRules() {
   return useQuery({
     queryKey: ["notification_rules"],
     queryFn: async (): Promise<NotificationRule[]> => {
+      if (isDemoMode()) {
+        return [
+          { id: "nr1", name: "Overdue Deliverables Alert", triggerType: "overdue_deliverable", channel: "both", recipients: ["demo@onnify.com"], isActive: true, conditions: {} },
+          { id: "nr2", name: "Upcoming Due Dates", triggerType: "upcoming_due", channel: "in_app", recipients: ["demo@onnify.com"], isActive: true, conditions: { daysBefore: 3 } },
+        ];
+      }
       const { data, error } = await supabase
         .from("notification_rules")
         .select("*")
@@ -88,6 +95,14 @@ export function useNotifications(userEmail?: string) {
   return useQuery({
     queryKey: ["notifications", userEmail],
     queryFn: async (): Promise<Notification[]> => {
+      if (isDemoMode()) {
+        return [
+          { id: "n1", userEmail: "demo@onnify.com", title: "Overdue: Social Media Calendar", message: "Acme Corp deliverable is 3 days overdue", type: "warning", isRead: false, link: "/deliverables", createdAt: new Date().toISOString() },
+          { id: "n2", userEmail: "demo@onnify.com", title: "Invoice Overdue: NovaPay", message: "INV-2026-004 for $4,000 SGD is overdue", type: "error", isRead: false, link: "/invoices", createdAt: new Date(Date.now() - 86400000).toISOString() },
+          { id: "n3", userEmail: "demo@onnify.com", title: "New client onboarding", message: "FreshBites SG has started onboarding", type: "info", isRead: true, link: "/clients", createdAt: new Date(Date.now() - 172800000).toISOString() },
+        ];
+      }
+
       let query = supabase
         .from("notifications")
         .select("*")
@@ -102,7 +117,7 @@ export function useNotifications(userEmail?: string) {
       if (error) throw error;
       return (data || []).map((row) => mapNotification(row as Record<string, unknown>));
     },
-    enabled: !!userEmail,
+    enabled: isDemoMode() || !!userEmail,
   });
 }
 

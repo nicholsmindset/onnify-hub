@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { GhlConnection, mapGhlConnection, toGhlConnectionRow } from "@/types";
+import { isDemoMode } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 export function useGhlConnections() {
   return useQuery({
     queryKey: ["ghl_connections"],
     queryFn: async (): Promise<GhlConnection[]> => {
+      if (isDemoMode()) {
+        return [
+          { id: "ghl1", clientId: "c1", clientName: "Acme Corp", displayClientId: "OW-SG-001", market: "SG", syncEnabled: true, lastSyncAt: new Date(Date.now() - 3600000).toISOString(), syncStatus: "connected", contactsSynced: 42, pipelinesSynced: 3 },
+          { id: "ghl2", clientId: "c4", clientName: "NovaPay", displayClientId: "OW-ID-001", market: "ID", syncEnabled: true, lastSyncAt: new Date(Date.now() - 7200000).toISOString(), syncStatus: "connected", contactsSynced: 28, pipelinesSynced: 2 },
+          { id: "ghl3", clientId: "c3", clientName: "TechStart Inc", displayClientId: "OW-US-001", market: "US", syncEnabled: false, syncStatus: "disconnected", contactsSynced: 0, pipelinesSynced: 0 },
+        ];
+      }
       const { data, error } = await supabase
         .from("ghl_connections_with_client")
         .select("*")
