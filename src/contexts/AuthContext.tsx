@@ -53,22 +53,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchProfile(s.user.id).then(setProfile);
       }
       setIsLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id).then(setProfile);
-      } else {
-        setProfile(null);
-      }
+    }).catch(() => {
+      // Supabase not configured — allow login page to render
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    let subscription: { unsubscribe: () => void } | undefined;
+    try {
+      const result = supabase.auth.onAuthStateChange((_event, s) => {
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          fetchProfile(s.user.id).then(setProfile);
+        } else {
+          setProfile(null);
+        }
+        setIsLoading(false);
+      });
+      subscription = result.data.subscription;
+    } catch {
+      // Supabase not configured
+    }
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
