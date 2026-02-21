@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, FileCheck, Receipt, ListTodo,
-  Newspaper, Link2, Bell, BarChart3, Globe, LogOut,
+  Newspaper, Link2, Bell, BarChart3, Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -17,9 +17,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserButton } from "@clerk/clerk-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -39,12 +38,8 @@ const moduleNavItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const collapsed = state === "collapsed";
-
-  const initials = profile?.fullName
-    ? profile.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U";
 
   return (
     <Sidebar collapsible="icon">
@@ -107,25 +102,22 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-3">
-        {profile && !collapsed && (
-          <div className="flex items-center gap-2 px-1">
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-xs bg-primary/10">{initials}</AvatarFallback>
-            </Avatar>
+        <div className="flex items-center gap-2 px-1">
+          <UserButton
+            afterSignOutUrl="/login"
+            appearance={{
+              elements: {
+                avatarBox: "h-7 w-7",
+              },
+            }}
+          />
+          {!collapsed && profile && (
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate">{profile.fullName}</p>
               <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile.role}</p>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={signOut} title="Sign out">
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
-        {profile && collapsed && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut} title="Sign out">
-            <LogOut className="h-4 w-4" />
-          </Button>
-        )}
+          )}
+        </div>
         <ThemeToggle />
       </SidebarFooter>
     </Sidebar>
