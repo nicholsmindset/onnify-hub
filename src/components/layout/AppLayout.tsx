@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/hooks/use-notifications";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { UserButton } from "@clerk/clerk-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ export function AppLayout() {
         <main className="flex-1 flex flex-col">
           <header className="h-14 border-b flex items-center justify-between px-4 bg-card">
             <SidebarTrigger />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("/notifications")}>
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -29,11 +29,7 @@ export function AppLayout() {
                   </span>
                 )}
               </Button>
-              {profile && (
-                <span className="text-sm text-muted-foreground hidden sm:block">
-                  {profile.fullName}
-                </span>
-              )}
+              <UserButton afterSignOutUrl="/login" />
             </div>
           </header>
           <div className="flex-1 p-6 overflow-auto">
