@@ -1,11 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { mockClients, mockDeliverables, mockInvoices, mockTasks } from "@/data/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useClients } from "@/hooks/use-clients";
+import { useDeliverables } from "@/hooks/use-deliverables";
+import { useInvoices } from "@/hooks/use-invoices";
+import { useTasks } from "@/hooks/use-tasks";
 import { Users, FileCheck, Receipt, ListTodo, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const activeClients = mockClients.filter((c) => c.status === "Active");
+  const { data: clients = [], isLoading: loadingClients } = useClients();
+  const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables();
+  const { data: invoices = [], isLoading: loadingInvoices } = useInvoices();
+  const { data: tasks = [], isLoading: loadingTasks } = useTasks();
+
+  const isLoading = loadingClients || loadingDeliverables || loadingInvoices || loadingTasks;
+
+  const activeClients = clients.filter((c) => c.status === "Active");
   const sgClients = activeClients.filter((c) => c.market === "SG").length;
   const idClients = activeClients.filter((c) => c.market === "ID").length;
   const usClients = activeClients.filter((c) => c.market === "US").length;
@@ -14,29 +25,51 @@ export default function Dashboard() {
   const weekFromNow = new Date(now);
   weekFromNow.setDate(weekFromNow.getDate() + 7);
 
-  const dueThisWeek = mockDeliverables.filter((d) => {
+  const dueThisWeek = deliverables.filter((d) => {
     const due = new Date(d.dueDate);
     return due >= now && due <= weekFromNow && d.status !== "Delivered" && d.status !== "Approved";
   });
 
-  const overdue = mockDeliverables.filter((d) => {
+  const overdue = deliverables.filter((d) => {
     return new Date(d.dueDate) < now && d.status !== "Delivered" && d.status !== "Approved";
   });
 
-  const revenueThisMonth = mockInvoices
-    .filter((i) => i.month === "2026-02" && i.currency === "SGD")
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const revenueThisMonth = invoices
+    .filter((i) => i.month === currentMonth && i.currency === "SGD")
     .reduce((sum, i) => sum + i.amount, 0);
 
-  const revenueUSD = mockInvoices
-    .filter((i) => i.month === "2026-02" && i.currency === "USD")
+  const revenueUSD = invoices
+    .filter((i) => i.month === currentMonth && i.currency === "USD")
     .reduce((sum, i) => sum + i.amount, 0);
 
-  const tasksByPerson = mockTasks.reduce((acc, t) => {
+  const tasksByPerson = tasks.reduce((acc, t) => {
     if (t.status !== "Done") {
       acc[t.assignedTo] = (acc[t.assignedTo] || 0) + 1;
     }
     return acc;
   }, {} as Record<string, number>);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">ONNIFY WORKS operations overview</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array(4).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-lg" />
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-48 w-full rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -80,7 +113,7 @@ export default function Dashboard() {
         <Link to="/invoices">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Revenue (Feb)</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Revenue (This Month)</CardTitle>
               <Receipt className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -138,7 +171,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {dueThisWeek.length === 0 ? (
-              <p className="text-sm text-muted-foreground">All caught up! 🎉</p>
+              <p className="text-sm text-muted-foreground">All caught up!</p>
             ) : (
               <div className="space-y-2">
                 {dueThisWeek.map((d) => (
