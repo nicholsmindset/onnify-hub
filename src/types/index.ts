@@ -223,3 +223,261 @@ export function toTaskRow(data: Partial<Task>) {
   if (data.notes !== undefined) row.notes = data.notes || null;
   return row;
 }
+
+// ============================================
+// USER & AUTH TYPES
+// ============================================
+
+export type UserRole = "admin" | "member" | "viewer";
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  avatarUrl?: string;
+  market?: Market;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapUserProfile(row: Record<string, unknown>): UserProfile {
+  return {
+    id: row.id as string,
+    email: row.email as string,
+    fullName: row.full_name as string,
+    role: row.role as UserRole,
+    avatarUrl: row.avatar_url as string | undefined,
+    market: row.market as Market | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+// ============================================
+// CONTENT PIPELINE TYPES
+// ============================================
+
+export type ContentType = "Blog" | "Social Post" | "Email Campaign" | "Video" | "Case Study" | "Newsletter";
+export type ContentPlatform = "Website" | "Instagram" | "LinkedIn" | "Facebook" | "YouTube" | "Email" | "TikTok";
+export type ContentStatus = "Ideation" | "Draft" | "Review" | "Approved" | "Scheduled" | "Published";
+
+export interface ContentItem {
+  id: string;
+  contentId: string;
+  clientId?: string;
+  clientName?: string;
+  title: string;
+  contentType: ContentType;
+  platform?: ContentPlatform;
+  status: ContentStatus;
+  assignedTo: string;
+  dueDate: string;
+  publishDate?: string;
+  contentBody?: string;
+  fileLink?: string;
+  notes?: string;
+  market: Market;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapContentItem(row: Record<string, unknown>): ContentItem {
+  return {
+    id: row.id as string,
+    contentId: row.content_id as string,
+    clientId: row.client_id as string | undefined,
+    clientName: row.client_name as string | undefined,
+    title: row.title as string,
+    contentType: row.content_type as ContentType,
+    platform: row.platform as ContentPlatform | undefined,
+    status: row.status as ContentStatus,
+    assignedTo: row.assigned_to as string,
+    dueDate: row.due_date as string,
+    publishDate: row.publish_date as string | undefined,
+    contentBody: row.content_body as string | undefined,
+    fileLink: row.file_link as string | undefined,
+    notes: row.notes as string | undefined,
+    market: row.market as Market,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toContentItemRow(data: Partial<ContentItem>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId || null;
+  if (data.title !== undefined) row.title = data.title;
+  if (data.contentType !== undefined) row.content_type = data.contentType;
+  if (data.platform !== undefined) row.platform = data.platform || null;
+  if (data.status !== undefined) row.status = data.status;
+  if (data.assignedTo !== undefined) row.assigned_to = data.assignedTo;
+  if (data.dueDate !== undefined) row.due_date = data.dueDate;
+  if (data.publishDate !== undefined) row.publish_date = data.publishDate || null;
+  if (data.contentBody !== undefined) row.content_body = data.contentBody || null;
+  if (data.fileLink !== undefined) row.file_link = data.fileLink || null;
+  if (data.notes !== undefined) row.notes = data.notes || null;
+  if (data.market !== undefined) row.market = data.market;
+  return row;
+}
+
+// ============================================
+// GHL SYNC TYPES
+// ============================================
+
+export type GhlSyncStatus = "connected" | "disconnected" | "syncing" | "error";
+
+export interface GhlConnection {
+  id: string;
+  clientId: string;
+  clientName?: string;
+  displayClientId?: string;
+  market?: Market;
+  apiKey?: string;
+  locationId?: string;
+  syncEnabled: boolean;
+  lastSyncAt?: string;
+  syncStatus: GhlSyncStatus;
+  contactsSynced: number;
+  pipelinesSynced: number;
+  errorMessage?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapGhlConnection(row: Record<string, unknown>): GhlConnection {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    clientName: row.client_name as string | undefined,
+    displayClientId: row.display_client_id as string | undefined,
+    market: row.market as Market | undefined,
+    apiKey: row.api_key as string | undefined,
+    locationId: row.location_id as string | undefined,
+    syncEnabled: row.sync_enabled as boolean,
+    lastSyncAt: row.last_sync_at as string | undefined,
+    syncStatus: row.sync_status as GhlSyncStatus,
+    contactsSynced: Number(row.contacts_synced || 0),
+    pipelinesSynced: Number(row.pipelines_synced || 0),
+    errorMessage: row.error_message as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toGhlConnectionRow(data: Partial<GhlConnection>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.apiKey !== undefined) row.api_key = data.apiKey || null;
+  if (data.locationId !== undefined) row.location_id = data.locationId || null;
+  if (data.syncEnabled !== undefined) row.sync_enabled = data.syncEnabled;
+  if (data.syncStatus !== undefined) row.sync_status = data.syncStatus;
+  return row;
+}
+
+// ============================================
+// NOTIFICATION TYPES
+// ============================================
+
+export type NotificationTrigger = "overdue_deliverable" | "overdue_invoice" | "status_change" | "upcoming_due" | "new_assignment" | "client_onboarding";
+export type NotificationChannel = "email" | "in_app" | "both";
+export type NotificationType = "info" | "warning" | "error" | "success";
+
+export interface NotificationRule {
+  id: string;
+  name: string;
+  triggerType: NotificationTrigger;
+  channel: NotificationChannel;
+  recipients: string[];
+  isActive: boolean;
+  conditions: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapNotificationRule(row: Record<string, unknown>): NotificationRule {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    triggerType: row.trigger_type as NotificationTrigger,
+    channel: row.channel as NotificationChannel,
+    recipients: row.recipients as string[],
+    isActive: row.is_active as boolean,
+    conditions: (row.conditions as Record<string, unknown>) || {},
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toNotificationRuleRow(data: Partial<NotificationRule>) {
+  const row: Record<string, unknown> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.triggerType !== undefined) row.trigger_type = data.triggerType;
+  if (data.channel !== undefined) row.channel = data.channel;
+  if (data.recipients !== undefined) row.recipients = data.recipients;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+  if (data.conditions !== undefined) row.conditions = data.conditions;
+  return row;
+}
+
+export interface Notification {
+  id: string;
+  userEmail: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  isRead: boolean;
+  link?: string;
+  createdAt?: string;
+}
+
+export function mapNotification(row: Record<string, unknown>): Notification {
+  return {
+    id: row.id as string,
+    userEmail: row.user_email as string,
+    title: row.title as string,
+    message: row.message as string,
+    type: row.type as NotificationType,
+    isRead: row.is_read as boolean,
+    link: row.link as string | undefined,
+    createdAt: row.created_at as string | undefined,
+  };
+}
+
+// ============================================
+// PORTAL ACCESS TYPES
+// ============================================
+
+export interface PortalAccess {
+  id: string;
+  clientId: string;
+  accessToken: string;
+  contactEmail: string;
+  contactName: string;
+  isActive: boolean;
+  lastAccessedAt?: string;
+  createdAt?: string;
+}
+
+export function mapPortalAccess(row: Record<string, unknown>): PortalAccess {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    accessToken: row.access_token as string,
+    contactEmail: row.contact_email as string,
+    contactName: row.contact_name as string,
+    isActive: row.is_active as boolean,
+    lastAccessedAt: row.last_accessed_at as string | undefined,
+    createdAt: row.created_at as string | undefined,
+  };
+}
+
+export function toPortalAccessRow(data: Partial<PortalAccess>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.accessToken !== undefined) row.access_token = data.accessToken;
+  if (data.contactEmail !== undefined) row.contact_email = data.contactEmail;
+  if (data.contactName !== undefined) row.contact_name = data.contactName;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+  return row;
+}

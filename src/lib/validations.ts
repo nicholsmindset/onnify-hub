@@ -54,3 +54,49 @@ export const taskSchema = z.object({
 });
 
 export type TaskFormValues = z.infer<typeof taskSchema>;
+
+export const contentSchema = z.object({
+  clientId: z.string().optional().or(z.literal("")),
+  title: z.string().min(1, "Title is required"),
+  contentType: z.enum(["Blog", "Social Post", "Email Campaign", "Video", "Case Study", "Newsletter"]),
+  platform: z.enum(["Website", "Instagram", "LinkedIn", "Facebook", "YouTube", "Email", "TikTok"]).optional().or(z.literal("")),
+  status: z.enum(["Ideation", "Draft", "Review", "Approved", "Scheduled", "Published"]),
+  assignedTo: z.string().min(1, "Assignee is required"),
+  dueDate: z.string().min(1, "Due date is required"),
+  publishDate: z.string().optional().or(z.literal("")),
+  contentBody: z.string().optional().or(z.literal("")),
+  fileLink: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+  market: z.enum(["SG", "ID", "US"]),
+});
+
+export type ContentFormValues = z.infer<typeof contentSchema>;
+
+export const notificationRuleSchema = z.object({
+  name: z.string().min(1, "Rule name is required"),
+  triggerType: z.enum(["overdue_deliverable", "overdue_invoice", "status_change", "upcoming_due", "new_assignment", "client_onboarding"]),
+  channel: z.enum(["email", "in_app", "both"]),
+  recipients: z.array(z.string()).min(1, "At least one recipient is required"),
+  isActive: z.boolean(),
+});
+
+export type NotificationRuleFormValues = z.infer<typeof notificationRuleSchema>;
+
+export const loginSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export type LoginFormValues = z.infer<typeof loginSchema>;
+
+export const registerSchema = z.object({
+  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export type RegisterFormValues = z.infer<typeof registerSchema>;
