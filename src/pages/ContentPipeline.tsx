@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useContent, useCreateContent, useUpdateContent, useDeleteContent } from "@/hooks/use-content";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import { ContentForm } from "@/components/forms/ContentForm";
 import { Plus, Trash2 } from "lucide-react";
 import { ContentItem, ContentStatus } from "@/types";
 import { ContentFormValues } from "@/lib/validations";
+import { getSlaStatus, getSlaStatusColor, getSlaStatusLabel, getDaysRemaining } from "@/lib/sla";
 import {
   DndContext,
   DragEndEvent,
@@ -24,6 +26,21 @@ import {
 } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
+import { VersionHistory } from "@/components/content/VersionHistory";
+import { QualityScorecard } from "@/components/content/QualityScorecard";
+import { PerformanceTracker } from "@/components/content/PerformanceTracker";
+
+function VersionHistoryTab({ contentId }: { contentId: string }) {
+  return <VersionHistory contentId={contentId} />;
+}
+
+function QualityScorecardTab({ contentId }: { contentId: string }) {
+  return <QualityScorecard contentId={contentId} />;
+}
+
+function PerformanceTrackerTab({ contentId }: { contentId: string }) {
+  return <PerformanceTracker contentId={contentId} />;
+}
 
 const columns: ContentStatus[] = ["Ideation", "Draft", "Review", "Approved", "Scheduled", "Published"];
 
@@ -73,16 +90,34 @@ function DraggableContentCard({ item, onClick }: { item: ContentItem; onClick: (
         onClick={onClick}
       >
         <CardContent className="p-3 space-y-2">
-          <p className="text-sm font-medium leading-tight">{item.title}</p>
+          <div className="flex items-start justify-between gap-1">
+            <p className="text-sm font-medium leading-tight flex-1">{item.title}</p>
+            {item.currentVersion && item.currentVersion > 1 && (
+              <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0">v{item.currentVersion}</span>
+            )}
+          </div>
           {item.clientName && <p className="text-xs text-muted-foreground">{item.clientName}</p>}
           <div className="flex items-center justify-between">
             <span className={`text-xs px-1.5 py-0.5 rounded ${typeColor[item.contentType] || "bg-muted"}`}>{item.contentType}</span>
+            {item.language && item.language !== "English" && (
+              <span className="text-[10px] px-1 py-0.5 rounded bg-accent/10 text-accent">{item.language}</span>
+            )}
             {item.platform && <span className="text-xs text-muted-foreground">{item.platform}</span>}
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{item.assignedTo}</span>
             <span className="text-xs text-muted-foreground">Due: {item.dueDate}</span>
           </div>
+          {item.slaDeadline && item.status !== "Published" && (() => {
+            const slaStatus = getSlaStatus(item.slaDeadline);
+            if (slaStatus === "on_track") return null;
+            const days = getDaysRemaining(item.slaDeadline);
+            return (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded inline-block ${getSlaStatusColor(slaStatus)}`}>
+                {getSlaStatusLabel(slaStatus)} {days > 0 ? `(${days}d)` : ""}
+              </span>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
@@ -256,7 +291,32 @@ export default function ContentPipeline() {
           </SheetHeader>
           {editItem && (
             <div className="mt-6">
-              <ContentForm defaultValues={editItem} onSubmit={handleUpdate} isLoading={updateMutation.isPending} />
+              <Tabs defaultValue="edit">
+                <TabsList className="w-full">
+                  <TabsTrigger value="edit" className="flex-1">Edit</TabsTrigger>
+                  <TabsTrigger value="versions" className="flex-1">Versions</TabsTrigger>
+                  <TabsTrigger value="quality" className="flex-1">Quality</TabsTrigger>
+                  <TabsTrigger value="performance" className="flex-1">Perf</TabsTrigger>
+                </TabsList>
+                <TabsContent value="edit" className="mt-4">
+                  <ContentForm defaultValues={editItem} onSubmit={handleUpdate} isLoading={updateMutation.isPending} />
+                </TabsContent>
+                <TabsContent value="versions" className="mt-4">
+                  <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+                    <VersionHistoryTab contentId={editItem.id} />
+                  </Suspense>
+                </TabsContent>
+                <TabsContent value="quality" className="mt-4">
+                  <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+                    <QualityScorecardTab contentId={editItem.id} />
+                  </Suspense>
+                </TabsContent>
+                <TabsContent value="performance" className="mt-4">
+                  <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+                    <PerformanceTrackerTab contentId={editItem.id} />
+                  </Suspense>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </SheetContent>

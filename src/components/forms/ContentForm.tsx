@@ -33,6 +33,8 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
       fileLink: defaultValues?.fileLink || "",
       notes: defaultValues?.notes || "",
       market: defaultValues?.market || "SG",
+      language: defaultValues?.language || "English",
+      reviewStatus: defaultValues?.reviewStatus || "none",
     },
   });
 
@@ -151,6 +153,23 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
             </FormItem>
           )} />
         </div>
+
+        <FormField control={form.control} name="language" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Language</FormLabel>
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <FormControl><SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger></FormControl>
+              <SelectContent>
+                <SelectItem value="English">English</SelectItem>
+                <SelectItem value="Bahasa Indonesia">Bahasa Indonesia</SelectItem>
+                <SelectItem value="Mandarin">Mandarin</SelectItem>
+                <SelectItem value="Malay">Malay</SelectItem>
+                <SelectItem value="Tamil">Tamil</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )} />
 
         <FormField control={form.control} name="contentBody" render={({ field }) => (
           <FormItem>

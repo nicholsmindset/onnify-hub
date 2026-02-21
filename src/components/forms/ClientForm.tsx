@@ -40,6 +40,8 @@ export function ClientForm({ defaultValues, onSubmit, isLoading }: ClientFormPro
       contractEnd: defaultValues?.contractEnd ?? "",
       monthlyValue: defaultValues?.monthlyValue ?? 0,
       ghlUrl: defaultValues?.ghlUrl ?? "",
+      primaryLanguage: defaultValues?.primaryLanguage ?? "English",
+      secondaryLanguage: defaultValues?.secondaryLanguage ?? "",
     },
   });
 
@@ -198,6 +200,59 @@ export function ClientForm({ defaultValues, onSubmit, isLoading }: ClientFormPro
                 <FormControl>
                   <Input type="date" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="primaryLanguage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Primary Language</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="English">English</SelectItem>
+                    <SelectItem value="Bahasa Indonesia">Bahasa Indonesia</SelectItem>
+                    <SelectItem value="Mandarin">Mandarin</SelectItem>
+                    <SelectItem value="Malay">Malay</SelectItem>
+                    <SelectItem value="Tamil">Tamil</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="secondaryLanguage"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Secondary Language</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || "none"}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="English">English</SelectItem>
+                    <SelectItem value="Bahasa Indonesia">Bahasa Indonesia</SelectItem>
+                    <SelectItem value="Mandarin">Mandarin</SelectItem>
+                    <SelectItem value="Malay">Malay</SelectItem>
+                    <SelectItem value="Tamil">Tamil</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

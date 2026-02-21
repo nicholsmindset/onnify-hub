@@ -3,6 +3,8 @@ export type ClientStatus = "Prospect" | "Onboarding" | "Active" | "Churned";
 export type PlanTier = "Starter" | "Growth" | "Pro";
 export type Industry = "Real Estate" | "F&B" | "Insurance" | "Health" | "Tech" | "SaaS";
 
+export type OnboardingStatusType = "none" | "in_progress" | "complete";
+
 export interface Client {
   id: string;
   clientId: string; // OW-SG-001 (client_id in DB)
@@ -16,6 +18,10 @@ export interface Client {
   contractStart?: string;
   contractEnd?: string;
   monthlyValue: number;
+  primaryLanguage?: string;
+  secondaryLanguage?: string;
+  onboardingStatus?: OnboardingStatusType;
+  brandVoiceSummary?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -99,6 +105,10 @@ export function mapClient(row: Record<string, unknown>): Client {
     contractStart: row.contract_start as string | undefined,
     contractEnd: row.contract_end as string | undefined,
     monthlyValue: Number(row.monthly_value),
+    primaryLanguage: row.primary_language as string | undefined,
+    secondaryLanguage: row.secondary_language as string | undefined,
+    onboardingStatus: row.onboarding_status as OnboardingStatusType | undefined,
+    brandVoiceSummary: row.brand_voice_summary as string | undefined,
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
   };
@@ -177,6 +187,10 @@ export function toClientRow(data: Partial<Client>) {
   if (data.contractStart !== undefined) row.contract_start = data.contractStart || null;
   if (data.contractEnd !== undefined) row.contract_end = data.contractEnd || null;
   if (data.monthlyValue !== undefined) row.monthly_value = data.monthlyValue;
+  if (data.primaryLanguage !== undefined) row.primary_language = data.primaryLanguage || null;
+  if (data.secondaryLanguage !== undefined) row.secondary_language = data.secondaryLanguage || null;
+  if (data.onboardingStatus !== undefined) row.onboarding_status = data.onboardingStatus;
+  if (data.brandVoiceSummary !== undefined) row.brand_voice_summary = data.brandVoiceSummary || null;
   return row;
 }
 
@@ -261,6 +275,7 @@ export function mapUserProfile(row: Record<string, unknown>): UserProfile {
 export type ContentType = "Blog" | "Social Post" | "Email Campaign" | "Video" | "Case Study" | "Newsletter";
 export type ContentPlatform = "Website" | "Instagram" | "LinkedIn" | "Facebook" | "YouTube" | "Email" | "TikTok";
 export type ContentStatus = "Ideation" | "Draft" | "Review" | "Approved" | "Scheduled" | "Published";
+export type ReviewStatus = "none" | "internal_review" | "client_review" | "changes_requested" | "approved" | "rejected";
 
 export interface ContentItem {
   id: string;
@@ -278,6 +293,11 @@ export interface ContentItem {
   fileLink?: string;
   notes?: string;
   market: Market;
+  slaDeadline?: string;
+  currentVersion?: number;
+  revisionCount?: number;
+  reviewStatus?: ReviewStatus;
+  language?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -299,6 +319,11 @@ export function mapContentItem(row: Record<string, unknown>): ContentItem {
     fileLink: row.file_link as string | undefined,
     notes: row.notes as string | undefined,
     market: row.market as Market,
+    slaDeadline: row.sla_deadline as string | undefined,
+    currentVersion: row.current_version as number | undefined,
+    revisionCount: row.revision_count as number | undefined,
+    reviewStatus: row.review_status as ReviewStatus | undefined,
+    language: row.language as string | undefined,
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
   };
@@ -318,6 +343,11 @@ export function toContentItemRow(data: Partial<ContentItem>) {
   if (data.fileLink !== undefined) row.file_link = data.fileLink || null;
   if (data.notes !== undefined) row.notes = data.notes || null;
   if (data.market !== undefined) row.market = data.market;
+  if (data.slaDeadline !== undefined) row.sla_deadline = data.slaDeadline || null;
+  if (data.currentVersion !== undefined) row.current_version = data.currentVersion;
+  if (data.revisionCount !== undefined) row.revision_count = data.revisionCount;
+  if (data.reviewStatus !== undefined) row.review_status = data.reviewStatus;
+  if (data.language !== undefined) row.language = data.language || null;
   return row;
 }
 
@@ -479,5 +509,454 @@ export function toPortalAccessRow(data: Partial<PortalAccess>) {
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail;
   if (data.contactName !== undefined) row.contact_name = data.contactName;
   if (data.isActive !== undefined) row.is_active = data.isActive;
+  return row;
+}
+
+// ============================================
+// CLIENT ONBOARDING TYPES (Upgrade 1)
+// ============================================
+
+export type OnboardingStep = "intake_pending" | "intake_completed" | "brand_review" | "first_content" | "client_review" | "complete";
+
+export interface ClientOnboarding {
+  id: string;
+  clientId: string;
+  status: OnboardingStep;
+  intakeData: Record<string, unknown>;
+  brandVoiceDoc?: string;
+  onboardingStartedAt?: string;
+  onboardingCompletedAt?: string;
+  checklist: Array<{ step: string; completed: boolean; completedAt?: string }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapClientOnboarding(row: Record<string, unknown>): ClientOnboarding {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    status: row.status as OnboardingStep,
+    intakeData: (row.intake_data as Record<string, unknown>) || {},
+    brandVoiceDoc: row.brand_voice_doc as string | undefined,
+    onboardingStartedAt: row.onboarding_started_at as string | undefined,
+    onboardingCompletedAt: row.onboarding_completed_at as string | undefined,
+    checklist: (row.checklist as Array<{ step: string; completed: boolean; completedAt?: string }>) || [],
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toClientOnboardingRow(data: Partial<ClientOnboarding>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.status !== undefined) row.status = data.status;
+  if (data.intakeData !== undefined) row.intake_data = data.intakeData;
+  if (data.brandVoiceDoc !== undefined) row.brand_voice_doc = data.brandVoiceDoc || null;
+  if (data.onboardingStartedAt !== undefined) row.onboarding_started_at = data.onboardingStartedAt;
+  if (data.onboardingCompletedAt !== undefined) row.onboarding_completed_at = data.onboardingCompletedAt;
+  if (data.checklist !== undefined) row.checklist = data.checklist;
+  return row;
+}
+
+// ============================================
+// CONTENT REVIEW TYPES (Upgrade 2)
+// ============================================
+
+export type ReviewAction = "approve" | "request_changes" | "reject";
+export type ReviewerType = "internal" | "client";
+
+export interface ContentReview {
+  id: string;
+  contentId: string;
+  reviewerType: ReviewerType;
+  reviewerName: string;
+  action: ReviewAction;
+  comments?: string;
+  createdAt?: string;
+}
+
+export function mapContentReview(row: Record<string, unknown>): ContentReview {
+  return {
+    id: row.id as string,
+    contentId: row.content_id as string,
+    reviewerType: row.reviewer_type as ReviewerType,
+    reviewerName: row.reviewer_name as string,
+    action: row.action as ReviewAction,
+    comments: row.comments as string | undefined,
+    createdAt: row.created_at as string | undefined,
+  };
+}
+
+// ============================================
+// CONTENT VERSION TYPES (Upgrade 5)
+// ============================================
+
+export interface ContentVersion {
+  id: string;
+  contentId: string;
+  versionNumber: number;
+  title: string;
+  contentBody?: string;
+  author: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export function mapContentVersion(row: Record<string, unknown>): ContentVersion {
+  return {
+    id: row.id as string,
+    contentId: row.content_id as string,
+    versionNumber: Number(row.version_number),
+    title: row.title as string,
+    contentBody: row.content_body as string | undefined,
+    author: row.author as string,
+    notes: row.notes as string | undefined,
+    createdAt: row.created_at as string | undefined,
+  };
+}
+
+// ============================================
+// SLA DEFINITION TYPES (Upgrade 3)
+// ============================================
+
+export interface SlaDefinition {
+  id: string;
+  contentType: string;
+  briefToDraftDays: number;
+  draftToReviewDays: number;
+  reviewToPublishDays: number;
+  totalDays: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapSlaDefinition(row: Record<string, unknown>): SlaDefinition {
+  return {
+    id: row.id as string,
+    contentType: row.content_type as string,
+    briefToDraftDays: Number(row.brief_to_draft_days),
+    draftToReviewDays: Number(row.draft_to_review_days),
+    reviewToPublishDays: Number(row.review_to_publish_days),
+    totalDays: Number(row.total_days),
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toSlaDefinitionRow(data: Partial<SlaDefinition>) {
+  const row: Record<string, unknown> = {};
+  if (data.contentType !== undefined) row.content_type = data.contentType;
+  if (data.briefToDraftDays !== undefined) row.brief_to_draft_days = data.briefToDraftDays;
+  if (data.draftToReviewDays !== undefined) row.draft_to_review_days = data.draftToReviewDays;
+  if (data.reviewToPublishDays !== undefined) row.review_to_publish_days = data.reviewToPublishDays;
+  if (data.totalDays !== undefined) row.total_days = data.totalDays;
+  return row;
+}
+
+// ============================================
+// RETAINER TYPES (Upgrade 4)
+// ============================================
+
+export interface RetainerTier {
+  id: string;
+  name: string;
+  blogsPerMonth: number;
+  servicePagesPerMonth: number;
+  pseoPagesPerMonth: number;
+  socialCascadesPerMonth: number;
+  emailSequencesPerMonth: number;
+  caseStudiesPerMonth: number;
+  revisionsPerPiece: number;
+  contentRequestsPerMonth: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapRetainerTier(row: Record<string, unknown>): RetainerTier {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    blogsPerMonth: Number(row.blogs_per_month || 0),
+    servicePagesPerMonth: Number(row.service_pages_per_month || 0),
+    pseoPagesPerMonth: Number(row.pseo_pages_per_month || 0),
+    socialCascadesPerMonth: Number(row.social_cascades_per_month || 0),
+    emailSequencesPerMonth: Number(row.email_sequences_per_month || 0),
+    caseStudiesPerMonth: Number(row.case_studies_per_month || 0),
+    revisionsPerPiece: Number(row.revisions_per_piece || 1),
+    contentRequestsPerMonth: Number(row.content_requests_per_month || 0),
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toRetainerTierRow(data: Partial<RetainerTier>) {
+  const row: Record<string, unknown> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.blogsPerMonth !== undefined) row.blogs_per_month = data.blogsPerMonth;
+  if (data.servicePagesPerMonth !== undefined) row.service_pages_per_month = data.servicePagesPerMonth;
+  if (data.pseoPagesPerMonth !== undefined) row.pseo_pages_per_month = data.pseoPagesPerMonth;
+  if (data.socialCascadesPerMonth !== undefined) row.social_cascades_per_month = data.socialCascadesPerMonth;
+  if (data.emailSequencesPerMonth !== undefined) row.email_sequences_per_month = data.emailSequencesPerMonth;
+  if (data.caseStudiesPerMonth !== undefined) row.case_studies_per_month = data.caseStudiesPerMonth;
+  if (data.revisionsPerPiece !== undefined) row.revisions_per_piece = data.revisionsPerPiece;
+  if (data.contentRequestsPerMonth !== undefined) row.content_requests_per_month = data.contentRequestsPerMonth;
+  return row;
+}
+
+export interface RetainerUsage {
+  id: string;
+  clientId: string;
+  month: string;
+  blogsUsed: number;
+  servicePagesUsed: number;
+  pseoPagesUsed: number;
+  socialCascadesUsed: number;
+  emailSequencesUsed: number;
+  caseStudiesUsed: number;
+  revisionsUsed: number;
+  contentRequestsUsed: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapRetainerUsage(row: Record<string, unknown>): RetainerUsage {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    month: row.month as string,
+    blogsUsed: Number(row.blogs_used || 0),
+    servicePagesUsed: Number(row.service_pages_used || 0),
+    pseoPagesUsed: Number(row.pseo_pages_used || 0),
+    socialCascadesUsed: Number(row.social_cascades_used || 0),
+    emailSequencesUsed: Number(row.email_sequences_used || 0),
+    caseStudiesUsed: Number(row.case_studies_used || 0),
+    revisionsUsed: Number(row.revisions_used || 0),
+    contentRequestsUsed: Number(row.content_requests_used || 0),
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toRetainerUsageRow(data: Partial<RetainerUsage>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.month !== undefined) row.month = data.month;
+  if (data.blogsUsed !== undefined) row.blogs_used = data.blogsUsed;
+  if (data.servicePagesUsed !== undefined) row.service_pages_used = data.servicePagesUsed;
+  if (data.pseoPagesUsed !== undefined) row.pseo_pages_used = data.pseoPagesUsed;
+  if (data.socialCascadesUsed !== undefined) row.social_cascades_used = data.socialCascadesUsed;
+  if (data.emailSequencesUsed !== undefined) row.email_sequences_used = data.emailSequencesUsed;
+  if (data.caseStudiesUsed !== undefined) row.case_studies_used = data.caseStudiesUsed;
+  if (data.revisionsUsed !== undefined) row.revisions_used = data.revisionsUsed;
+  if (data.contentRequestsUsed !== undefined) row.content_requests_used = data.contentRequestsUsed;
+  return row;
+}
+
+// ============================================
+// QUALITY SCORE TYPES (Upgrade 6)
+// ============================================
+
+export interface QualityScore {
+  id: string;
+  contentId: string;
+  seoScore: number;
+  brandVoiceScore: number;
+  uniquenessScore: number;
+  humannessScore: number;
+  completenessScore: number;
+  compositeScore: number;
+  scoredBy?: string;
+  scoredAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapQualityScore(row: Record<string, unknown>): QualityScore {
+  return {
+    id: row.id as string,
+    contentId: row.content_id as string,
+    seoScore: Number(row.seo_score || 0),
+    brandVoiceScore: Number(row.brand_voice_score || 0),
+    uniquenessScore: Number(row.uniqueness_score || 0),
+    humannessScore: Number(row.humanness_score || 0),
+    completenessScore: Number(row.completeness_score || 0),
+    compositeScore: Number(row.composite_score || 0),
+    scoredBy: row.scored_by as string | undefined,
+    scoredAt: row.scored_at as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toQualityScoreRow(data: Partial<QualityScore>) {
+  const row: Record<string, unknown> = {};
+  if (data.contentId !== undefined) row.content_id = data.contentId;
+  if (data.seoScore !== undefined) row.seo_score = data.seoScore;
+  if (data.brandVoiceScore !== undefined) row.brand_voice_score = data.brandVoiceScore;
+  if (data.uniquenessScore !== undefined) row.uniqueness_score = data.uniquenessScore;
+  if (data.humannessScore !== undefined) row.humanness_score = data.humannessScore;
+  if (data.completenessScore !== undefined) row.completeness_score = data.completenessScore;
+  if (data.compositeScore !== undefined) row.composite_score = data.compositeScore;
+  if (data.scoredBy !== undefined) row.scored_by = data.scoredBy || null;
+  if (data.scoredAt !== undefined) row.scored_at = data.scoredAt;
+  return row;
+}
+
+// ============================================
+// CONTENT REQUEST TYPES (Upgrade 7)
+// ============================================
+
+export type RequestPriority = "standard" | "urgent" | "rush";
+export type RequestStatus = "pending" | "accepted" | "rejected" | "converted";
+
+export interface ContentRequest {
+  id: string;
+  requestId: string;
+  clientId: string;
+  clientName?: string;
+  portalAccessId?: string;
+  contentType: string;
+  topic: string;
+  targetKeyword?: string;
+  priority: RequestPriority;
+  desiredDate?: string;
+  referenceUrls?: string;
+  referenceNotes?: string;
+  status: RequestStatus;
+  convertedContentId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapContentRequest(row: Record<string, unknown>): ContentRequest {
+  return {
+    id: row.id as string,
+    requestId: row.request_id as string,
+    clientId: row.client_id as string,
+    clientName: row.client_name as string | undefined,
+    portalAccessId: row.portal_access_id as string | undefined,
+    contentType: row.content_type as string,
+    topic: row.topic as string,
+    targetKeyword: row.target_keyword as string | undefined,
+    priority: row.priority as RequestPriority,
+    desiredDate: row.desired_date as string | undefined,
+    referenceUrls: row.reference_urls as string | undefined,
+    referenceNotes: row.reference_notes as string | undefined,
+    status: row.status as RequestStatus,
+    convertedContentId: row.converted_content_id as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toContentRequestRow(data: Partial<ContentRequest>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.portalAccessId !== undefined) row.portal_access_id = data.portalAccessId || null;
+  if (data.contentType !== undefined) row.content_type = data.contentType;
+  if (data.topic !== undefined) row.topic = data.topic;
+  if (data.targetKeyword !== undefined) row.target_keyword = data.targetKeyword || null;
+  if (data.priority !== undefined) row.priority = data.priority;
+  if (data.desiredDate !== undefined) row.desired_date = data.desiredDate || null;
+  if (data.referenceUrls !== undefined) row.reference_urls = data.referenceUrls || null;
+  if (data.referenceNotes !== undefined) row.reference_notes = data.referenceNotes || null;
+  if (data.status !== undefined) row.status = data.status;
+  if (data.convertedContentId !== undefined) row.converted_content_id = data.convertedContentId || null;
+  return row;
+}
+
+// ============================================
+// CLIENT REPORT TYPES (Upgrade 8)
+// ============================================
+
+export type ReportStatus = "draft" | "published";
+
+export interface ClientReport {
+  id: string;
+  reportId: string;
+  clientId: string;
+  clientName?: string;
+  month: string;
+  summary?: string;
+  contentDelivered: Array<Record<string, unknown>>;
+  pipelineStatus: Record<string, unknown>;
+  performanceData: Record<string, unknown>;
+  recommendations?: string;
+  status: ReportStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapClientReport(row: Record<string, unknown>): ClientReport {
+  return {
+    id: row.id as string,
+    reportId: row.report_id as string,
+    clientId: row.client_id as string,
+    clientName: row.client_name as string | undefined,
+    month: row.month as string,
+    summary: row.summary as string | undefined,
+    contentDelivered: (row.content_delivered as Array<Record<string, unknown>>) || [],
+    pipelineStatus: (row.pipeline_status as Record<string, unknown>) || {},
+    performanceData: (row.performance_data as Record<string, unknown>) || {},
+    recommendations: row.recommendations as string | undefined,
+    status: row.status as ReportStatus,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toClientReportRow(data: Partial<ClientReport>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.month !== undefined) row.month = data.month;
+  if (data.summary !== undefined) row.summary = data.summary || null;
+  if (data.contentDelivered !== undefined) row.content_delivered = data.contentDelivered;
+  if (data.pipelineStatus !== undefined) row.pipeline_status = data.pipelineStatus;
+  if (data.performanceData !== undefined) row.performance_data = data.performanceData;
+  if (data.recommendations !== undefined) row.recommendations = data.recommendations || null;
+  if (data.status !== undefined) row.status = data.status;
+  return row;
+}
+
+// ============================================
+// CONTENT PERFORMANCE TYPES (Upgrade 9)
+// ============================================
+
+export type PerformanceTier = "high" | "mid" | "low";
+
+export interface ContentPerformance {
+  id: string;
+  contentId: string;
+  impressions: number;
+  clicks: number;
+  avgPosition?: number;
+  performanceTier?: PerformanceTier;
+  lastUpdatedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapContentPerformance(row: Record<string, unknown>): ContentPerformance {
+  return {
+    id: row.id as string,
+    contentId: row.content_id as string,
+    impressions: Number(row.impressions || 0),
+    clicks: Number(row.clicks || 0),
+    avgPosition: row.avg_position != null ? Number(row.avg_position) : undefined,
+    performanceTier: row.performance_tier as PerformanceTier | undefined,
+    lastUpdatedAt: row.last_updated_at as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toContentPerformanceRow(data: Partial<ContentPerformance>) {
+  const row: Record<string, unknown> = {};
+  if (data.contentId !== undefined) row.content_id = data.contentId;
+  if (data.impressions !== undefined) row.impressions = data.impressions;
+  if (data.clicks !== undefined) row.clicks = data.clicks;
+  if (data.avgPosition !== undefined) row.avg_position = data.avgPosition;
+  if (data.performanceTier !== undefined) row.performance_tier = data.performanceTier || null;
+  if (data.lastUpdatedAt !== undefined) row.last_updated_at = data.lastUpdatedAt;
   return row;
 }

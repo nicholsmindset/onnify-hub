@@ -135,6 +135,7 @@ export default function Clients() {
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Onboarding</TableHead>
                 <TableHead className="text-right">Monthly Value</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
@@ -156,6 +157,15 @@ export default function Clients() {
                     </span>
                   </TableCell>
                   <TableCell className="text-sm">{client.primaryContact}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      client.onboardingStatus === "complete" ? "default" :
+                      client.onboardingStatus === "in_progress" ? "secondary" : "outline"
+                    } className="text-xs">
+                      {client.onboardingStatus === "complete" ? "Complete" :
+                       client.onboardingStatus === "in_progress" ? "In Progress" : "Not Started"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right font-mono">${client.monthlyValue}</TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -171,7 +181,7 @@ export default function Clients() {
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No clients found</TableCell>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">No clients found</TableCell>
                 </TableRow>
               )}
             </TableBody>

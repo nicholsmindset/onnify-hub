@@ -12,8 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileCheck, Receipt, ListTodo, LogIn, Building2 } from "lucide-react";
+import { FileCheck, Receipt, ListTodo, LogIn, Building2, Newspaper, MessageSquarePlus } from "lucide-react";
 import { DeliverableStatus, InvoiceStatus } from "@/types";
+import { useContent } from "@/hooks/use-content";
+import { useContentRequests } from "@/hooks/use-content-requests";
+import { PortalContentReview } from "@/components/portal/PortalContentReview";
+import { PortalRequestForm } from "@/components/portal/PortalRequestForm";
 
 const delivStatusColor: Record<DeliverableStatus, string> = {
   "Not Started": "bg-muted text-muted-foreground",
@@ -62,13 +66,16 @@ function PortalLogin({ onLogin }: { onLogin: (token: string) => void }) {
   );
 }
 
-function PortalDashboard({ clientId, contactName }: { clientId: string; contactName: string }) {
+function PortalDashboard({ clientId, contactName, portalAccessId }: { clientId: string; contactName: string; portalAccessId: string }) {
   const { data: client, isLoading: loadingClient } = useClient(clientId);
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId });
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId });
   const { data: tasks = [], isLoading: loadingTasks } = useTasks({ clientId });
+  const { data: content = [], isLoading: loadingContent } = useContent({ clientId });
 
-  const isLoading = loadingClient || loadingDeliverables || loadingInvoices || loadingTasks;
+  const isLoading = loadingClient || loadingDeliverables || loadingInvoices || loadingTasks || loadingContent;
+  const contentInReview = content.filter((c) => c.status === "Review").length;
+  const publishedContent = content.filter((c) => c.status === "Published");
 
   if (isLoading) {
     return (
@@ -108,7 +115,7 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
         {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Deliverables</CardTitle>
@@ -129,6 +136,15 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Content in Review</CardTitle>
+              <Newspaper className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-display font-bold">{contentInReview}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Related Tasks</CardTitle>
               <ListTodo className="h-4 w-4 text-primary" />
             </CardHeader>
@@ -139,12 +155,58 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="deliverables">
-          <TabsList>
+        <Tabs defaultValue="content-review">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="content-review">Content Review</TabsTrigger>
+            <TabsTrigger value="content-library">Content Library</TabsTrigger>
+            <TabsTrigger value="submit-request">Submit Request</TabsTrigger>
             <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="content-review" className="mt-4">
+            <PortalContentReview clientId={clientId} portalContactName={contactName} />
+          </TabsContent>
+
+          <TabsContent value="content-library" className="mt-4">
+            <div className="rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Platform</TableHead>
+                    <TableHead>Published</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {publishedContent.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.title}</TableCell>
+                      <TableCell><Badge variant="outline">{c.contentType}</Badge></TableCell>
+                      <TableCell>{c.platform || "-"}</TableCell>
+                      <TableCell>{c.publishDate || c.updatedAt?.split("T")[0] || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                  {publishedContent.length === 0 && (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No published content yet</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="submit-request" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Submit a Content Request</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PortalRequestForm clientId={clientId} portalAccessId={portalAccessId} />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="deliverables" className="mt-4">
             <div className="rounded-lg border bg-card">
@@ -284,5 +346,5 @@ export default function Portal() {
     );
   }
 
-  return <PortalDashboard clientId={access.clientId} contactName={access.contactName} />;
+  return <PortalDashboard clientId={access.clientId} contactName={access.contactName} portalAccessId={access.id} />;
 }

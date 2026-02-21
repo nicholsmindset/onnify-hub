@@ -5,16 +5,29 @@ import { useClients } from "@/hooks/use-clients";
 import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
-import { Users, FileCheck, Receipt, ListTodo, AlertTriangle } from "lucide-react";
+import { useContent } from "@/hooks/use-content";
+import { useContentRequests } from "@/hooks/use-content-requests";
+import { Users, FileCheck, Receipt, ListTodo, AlertTriangle, Timer, Newspaper, MessageSquarePlus } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getSlaStatus } from "@/lib/sla";
 
 export default function Dashboard() {
   const { data: clients = [], isLoading: loadingClients } = useClients();
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables();
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices();
   const { data: tasks = [], isLoading: loadingTasks } = useTasks();
+  const { data: content = [], isLoading: loadingContent } = useContent();
+  const { data: requests = [], isLoading: loadingRequests } = useContentRequests({ status: "pending" });
 
-  const isLoading = loadingClients || loadingDeliverables || loadingInvoices || loadingTasks;
+  const isLoading = loadingClients || loadingDeliverables || loadingInvoices || loadingTasks || loadingContent || loadingRequests;
+
+  const slaAtRisk = content.filter((c) => {
+    const status = getSlaStatus(c.slaDeadline);
+    return status === "warning" || status === "critical" || status === "breached";
+  });
+  const slaBreached = slaAtRisk.filter((c) => getSlaStatus(c.slaDeadline) === "breached").length;
+
+  const onboardingClients = clients.filter((c) => c.onboardingStatus === "in_progress");
 
   const activeClients = clients.filter((c) => c.status === "Active");
   const sgClients = activeClients.filter((c) => c.market === "SG").length;
@@ -136,6 +149,73 @@ export default function Dashboard() {
                   <Badge key={name} variant="secondary" className="text-xs">{name}: {count}</Badge>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Content Command Center Stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Link to="/content">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Content Pipeline</CardTitle>
+              <Newspaper className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-display font-bold">{content.length}</div>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs">
+                  {content.filter((c) => c.status === "Published").length} published
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {content.filter((c) => c.status === "Draft" || c.status === "Review").length} in progress
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/content">
+          <Card className={`hover:shadow-md transition-shadow cursor-pointer ${slaAtRisk.length > 0 ? "border-warning/50" : ""}`}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">SLA At Risk</CardTitle>
+              <Timer className={`h-4 w-4 ${slaAtRisk.length > 0 ? "text-warning" : "text-primary"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-display font-bold">{slaAtRisk.length}</div>
+              {slaBreached > 0 && (
+                <p className="text-xs text-destructive mt-1">{slaBreached} breached</p>
+              )}
+              {slaAtRisk.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">All on track</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/content-requests">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Requests</CardTitle>
+              <MessageSquarePlus className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-display font-bold">{requests.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">client requests awaiting action</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/clients">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Onboarding</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-display font-bold">{onboardingClients.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">clients in onboarding</p>
             </CardContent>
           </Card>
         </Link>

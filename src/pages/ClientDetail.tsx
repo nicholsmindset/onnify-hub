@@ -1,15 +1,19 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useClient } from "@/hooks/use-clients";
 import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
+import { useOnboarding } from "@/hooks/use-onboarding";
+import { useRetainerUsage } from "@/hooks/use-retainer";
+import { useClientReports } from "@/hooks/use-client-reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Rocket, Globe, FileText } from "lucide-react";
 import { ClientStatus, DeliverableStatus, InvoiceStatus } from "@/types";
 
 const statusColor: Record<ClientStatus, string> = {
@@ -36,10 +40,15 @@ const invoiceStatusColor: Record<InvoiceStatus, string> = {
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: client, isLoading: loadingClient } = useClient(id);
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId: id });
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId: id });
   const { data: tasks = [], isLoading: loadingTasks } = useTasks({ clientId: id });
+  const { data: onboarding } = useOnboarding(id);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const { data: retainerUsage } = useRetainerUsage(id, currentMonth);
+  const { data: reports = [] } = useClientReports(id);
 
   if (loadingClient) {
     return (
@@ -131,8 +140,34 @@ export default function ClientDetail() {
               </a>
             </div>
           )}
+          {client.primaryLanguage && (
+            <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+              <Globe className="h-4 w-4" />
+              {client.primaryLanguage}{client.secondaryLanguage ? ` / ${client.secondaryLanguage}` : ""}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Onboarding Banner */}
+      {client.onboardingStatus !== "complete" && (
+        <Card className="border-warning/50 bg-warning/5">
+          <CardContent className="py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Rocket className="h-5 w-5 text-warning" />
+              <div>
+                <p className="font-medium text-sm">
+                  {onboarding ? `Onboarding in progress — ${onboarding.status.replace(/_/g, " ")}` : "Client hasn't been onboarded yet"}
+                </p>
+                <p className="text-xs text-muted-foreground">Complete onboarding to unlock the full content workflow</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => navigate(`/clients/${id}/onboarding`)}>
+              {onboarding ? "Continue Onboarding" : "Start Onboarding"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs: Deliverables, Invoices, Tasks */}
       <Tabs defaultValue="deliverables">
@@ -145,6 +180,10 @@ export default function ClientDetail() {
           </TabsTrigger>
           <TabsTrigger value="tasks">
             Tasks ({tasks.length})
+          </TabsTrigger>
+          <TabsTrigger value="retainer">Retainer</TabsTrigger>
+          <TabsTrigger value="reports">
+            Reports ({reports.length})
           </TabsTrigger>
         </TabsList>
 
@@ -251,6 +290,70 @@ export default function ClientDetail() {
                       <TableCell className="text-sm">{t.assignedTo}</TableCell>
                       <TableCell className="text-sm">{t.status}</TableCell>
                       <TableCell className="text-sm">{t.dueDate}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="retainer" className="mt-4">
+          {retainerUsage ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Retainer Usage — {currentMonth}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { label: "Blogs", used: retainerUsage.blogsUsed },
+                  { label: "Service Pages", used: retainerUsage.servicePagesUsed },
+                  { label: "pSEO Pages", used: retainerUsage.pseoPagesUsed },
+                  { label: "Social Cascades", used: retainerUsage.socialCascadesUsed },
+                  { label: "Email Sequences", used: retainerUsage.emailSequencesUsed },
+                  { label: "Case Studies", used: retainerUsage.caseStudiesUsed },
+                ].filter(item => item.used > 0).map((item) => (
+                  <div key={item.label} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>{item.label}</span>
+                      <span className="font-mono">{item.used} used</span>
+                    </div>
+                    <Progress value={Math.min(item.used * 10, 100)} className="h-2" />
+                  </div>
+                ))}
+                {retainerUsage.blogsUsed === 0 && retainerUsage.servicePagesUsed === 0 && retainerUsage.socialCascadesUsed === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No retainer usage recorded this month</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground py-8 text-center">No retainer usage data for this month</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="reports" className="mt-4">
+          {reports.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No reports generated yet</p>
+          ) : (
+            <div className="rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Report ID</TableHead>
+                    <TableHead>Month</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Summary</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reports.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs">{r.reportId}</TableCell>
+                      <TableCell>{r.month}</TableCell>
+                      <TableCell>
+                        <Badge variant={r.status === "published" ? "default" : "secondary"}>{r.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[300px] truncate">{r.summary || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

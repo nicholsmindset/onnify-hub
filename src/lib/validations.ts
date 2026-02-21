@@ -11,6 +11,8 @@ export const clientSchema = z.object({
   contractEnd: z.string().optional().or(z.literal("")),
   monthlyValue: z.coerce.number().min(0, "Value must be positive"),
   ghlUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  primaryLanguage: z.string().optional().or(z.literal("")),
+  secondaryLanguage: z.string().optional().or(z.literal("")),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -68,6 +70,8 @@ export const contentSchema = z.object({
   fileLink: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
   market: z.enum(["SG", "ID", "US"]),
+  language: z.string().optional().or(z.literal("")),
+  reviewStatus: z.enum(["none", "internal_review", "client_review", "changes_requested", "approved", "rejected"]).optional(),
 });
 
 export type ContentFormValues = z.infer<typeof contentSchema>;
@@ -100,3 +104,97 @@ export const registerSchema = z.object({
 });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+// ============================================
+// CONTENT COMMAND CENTER SCHEMAS
+// ============================================
+
+export const onboardingIntakeSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  websiteUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  industry: z.string().min(1, "Industry is required"),
+  targetMarkets: z.string().min(1, "Target markets are required"),
+  brandVoiceDescription: z.string().optional().or(z.literal("")),
+  sampleContentUrls: z.string().optional().or(z.literal("")),
+  topKeywords: z.string().optional().or(z.literal("")),
+  competitorUrls: z.string().optional().or(z.literal("")),
+  contentGoals: z.string().optional().or(z.literal("")),
+  tonePreferences: z.enum(["professional", "casual", "technical", "conversational"]).optional(),
+  contentCadence: z.enum(["weekly", "bi-weekly", "monthly"]).optional(),
+  publishingCredentials: z.string().optional().or(z.literal("")),
+  existingContentUrl: z.string().optional().or(z.literal("")),
+  primaryServices: z.string().optional().or(z.literal("")),
+});
+
+export type OnboardingIntakeFormValues = z.infer<typeof onboardingIntakeSchema>;
+
+export const contentReviewSchema = z.object({
+  action: z.enum(["approve", "request_changes", "reject"]),
+  comments: z.string().optional().or(z.literal("")),
+});
+
+export type ContentReviewFormValues = z.infer<typeof contentReviewSchema>;
+
+export const contentRequestSchema = z.object({
+  contentType: z.string().min(1, "Content type is required"),
+  topic: z.string().min(1, "Topic is required"),
+  targetKeyword: z.string().optional().or(z.literal("")),
+  priority: z.enum(["standard", "urgent", "rush"]),
+  desiredDate: z.string().optional().or(z.literal("")),
+  referenceUrls: z.string().optional().or(z.literal("")),
+  referenceNotes: z.string().optional().or(z.literal("")),
+});
+
+export type ContentRequestFormValues = z.infer<typeof contentRequestSchema>;
+
+export const slaDefinitionSchema = z.object({
+  contentType: z.string().min(1, "Content type is required"),
+  briefToDraftDays: z.coerce.number().min(1, "Must be at least 1 day"),
+  draftToReviewDays: z.coerce.number().min(1, "Must be at least 1 day"),
+  reviewToPublishDays: z.coerce.number().min(1, "Must be at least 1 day"),
+  totalDays: z.coerce.number().min(1, "Must be at least 1 day"),
+});
+
+export type SlaDefinitionFormValues = z.infer<typeof slaDefinitionSchema>;
+
+export const retainerTierSchema = z.object({
+  name: z.string().min(1, "Tier name is required"),
+  blogsPerMonth: z.coerce.number().min(0),
+  servicePagesPerMonth: z.coerce.number().min(0),
+  pseoPagesPerMonth: z.coerce.number().min(0),
+  socialCascadesPerMonth: z.coerce.number().min(0),
+  emailSequencesPerMonth: z.coerce.number().min(0),
+  caseStudiesPerMonth: z.coerce.number().min(0),
+  revisionsPerPiece: z.coerce.number().min(0),
+  contentRequestsPerMonth: z.coerce.number().min(0),
+});
+
+export type RetainerTierFormValues = z.infer<typeof retainerTierSchema>;
+
+export const qualityScoreSchema = z.object({
+  seoScore: z.coerce.number().min(0).max(100),
+  brandVoiceScore: z.coerce.number().min(0).max(100),
+  uniquenessScore: z.coerce.number().min(0).max(100),
+  humannessScore: z.coerce.number().min(0).max(100),
+  completenessScore: z.coerce.number().min(0).max(100),
+});
+
+export type QualityScoreFormValues = z.infer<typeof qualityScoreSchema>;
+
+export const clientReportSchema = z.object({
+  clientId: z.string().min(1, "Select a client"),
+  month: z.string().min(1, "Month is required"),
+  summary: z.string().optional().or(z.literal("")),
+  recommendations: z.string().optional().or(z.literal("")),
+});
+
+export type ClientReportFormValues = z.infer<typeof clientReportSchema>;
+
+export const contentPerformanceSchema = z.object({
+  impressions: z.coerce.number().min(0),
+  clicks: z.coerce.number().min(0),
+  avgPosition: z.coerce.number().min(0).optional(),
+  performanceTier: z.enum(["high", "mid", "low"]).optional(),
+});
+
+export type ContentPerformanceFormValues = z.infer<typeof contentPerformanceSchema>;

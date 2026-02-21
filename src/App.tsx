@@ -15,6 +15,11 @@ import Deliverables from "./pages/Deliverables";
 import Invoices from "./pages/Invoices";
 import Tasks from "./pages/Tasks";
 import ContentPipeline from "./pages/ContentPipeline";
+import ContentRequests from "./pages/ContentRequests";
+import ClientOnboarding from "./pages/ClientOnboarding";
+import ClientReportsPage from "./pages/ClientReports";
+import SlaSettings from "./pages/SlaSettings";
+import RetainerSettings from "./pages/RetainerSettings";
 import GhlSync from "./pages/GhlSync";
 import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
@@ -57,6 +62,11 @@ const App = () => (
                     <Route path="/invoices" element={<Invoices />} />
                     <Route path="/tasks" element={<Tasks />} />
                     <Route path="/content" element={<ContentPipeline />} />
+                    <Route path="/content-requests" element={<ContentRequests />} />
+                    <Route path="/clients/:id/onboarding" element={<ClientOnboarding />} />
+                    <Route path="/client-reports" element={<ClientReportsPage />} />
+                    <Route path="/settings/sla" element={<SlaSettings />} />
+                    <Route path="/settings/retainer" element={<RetainerSettings />} />
                     <Route path="/ghl-sync" element={<GhlSync />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/reports" element={<Reports />} />

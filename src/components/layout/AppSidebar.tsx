@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Users, FileCheck, Receipt, ListTodo,
-  Newspaper, Link2, Bell, BarChart3, Globe,
+  Newspaper, Link2, Bell, BarChart3, Globe, MessageSquarePlus,
+  ClipboardList, Timer, CreditCard, Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -30,10 +31,17 @@ const mainNavItems = [
 
 const moduleNavItems = [
   { title: "Content Pipeline", url: "/content", icon: Newspaper },
+  { title: "Content Requests", url: "/content-requests", icon: MessageSquarePlus },
+  { title: "Client Reports", url: "/client-reports", icon: ClipboardList },
   { title: "GHL Sync", url: "/ghl-sync", icon: Link2 },
   { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Client Portal", url: "/portal-admin", icon: Globe },
+];
+
+const settingsNavItems = [
+  { title: "SLA Definitions", url: "/settings/sla", icon: Timer },
+  { title: "Retainer Tiers", url: "/settings/retainer", icon: CreditCard },
 ];
 
 export function AppSidebar() {
@@ -84,6 +92,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {moduleNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title}>
+                    <NavLink
+                      to={item.url}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          {!collapsed && <SidebarGroupLabel className="text-xs text-sidebar-foreground/40 uppercase tracking-wider px-3">Settings</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
