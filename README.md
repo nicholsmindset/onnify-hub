@@ -1,73 +1,128 @@
-# Welcome to your Lovable project
+# OnnifyWorks CRM
 
-## Project info
+A full-featured CRM system built for **OnnifyWorks Digital Marketing Agency** — managing clients, deliverables, invoices, tasks, content pipelines, and more across Singapore, Indonesia, and the US.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+### Core CRM
+- **Client Management** — Full CRUD with status tracking (Prospect, Onboarding, Active, Churned), plan tiers, contract dates, monthly value
+- **Deliverables** — Kanban board with drag-and-drop status updates, service type tracking, priority levels, client approval workflow
+- **Invoices** — Multi-currency (SGD, USD, IDR) invoice management with status tracking (Draft, Sent, Paid, Overdue)
+- **Tasks** — Kanban board with drag-and-drop, category-based organization, client/deliverable linking
+- **Content Pipeline** — 6-stage Kanban (Ideation → Draft → Review → Approved → Scheduled → Published) with content type and platform filters
 
-There are several ways of editing your application.
+### AI-Powered Features
+- **AI Content Writer** — Generate blog posts, social media content, email campaigns, video scripts, case studies, and newsletters with tone control and quick prompt templates
+- **AI Content Refiner** — Iteratively improve generated content with natural language instructions
+- **AI Email Composer** — Draft client emails (Project Updates, Invoice Reminders, Deliverable Delivery, Onboarding Welcome, Upsell Proposals, etc.) with full client context injection
 
-**Use Lovable**
+### Integrations
+- **GoHighLevel Sync** — Connect and sync CRM data with GoHighLevel accounts
+- **Notification Rules** — Configurable triggers for overdue deliverables, invoices, status changes, and upcoming due dates
+- **Client Portal** — Grant clients secure portal access with email invitations and token-based authentication
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Administration
+- **Dashboard** — KPI overview with key metrics
+- **Reports** — Analytics and reporting
+- **Portal Admin** — Manage client portal access, send/resend invitations
+- **Role-Based Access** — Admin, Member, and Viewer roles via Supabase Auth
 
-Changes made via Lovable will be committed automatically to this repo.
+## Tech Stack
 
-**Use your preferred IDE**
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build | Vite |
+| UI | shadcn/ui + Tailwind CSS + Radix UI |
+| Auth | Supabase Auth |
+| Database | Supabase (PostgreSQL) |
+| State | TanStack React Query |
+| Routing | React Router v6 |
+| AI | OpenRouter API (Claude Sonnet 4) |
+| Drag & Drop | @dnd-kit |
+| Forms | React Hook Form + Zod validation |
+| Theming | next-themes (light/dark mode) |
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Getting Started
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Prerequisites
+- Node.js 18+ and npm
 
-Follow these steps:
+### Setup
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```bash
+# Clone the repository
+git clone https://github.com/nicholsmindset/onnify-hub.git
+cd onnify-hub
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Create environment file
+cp .env.example .env
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Edit `.env` with your credentials:
 
-**Use GitHub Codespaces**
+```env
+# Supabase (required)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# OpenRouter AI (for AI content generation & email drafting)
+VITE_OPENROUTER_API_KEY=your-openrouter-api-key
+```
 
-## What technologies are used for this project?
+### Development
 
-This project is built with:
+```bash
+# Start dev server (runs on port 8080)
+npm run dev
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Type check
+npx tsc --noEmit
 
-## How can I deploy this project?
+# Run tests (289 tests)
+npx vitest run
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Build for production
+npm run build
+```
 
-## Can I connect a custom domain to my Lovable project?
+## Project Structure
 
-Yes, you can!
+```
+src/
+├── components/
+│   ├── ai/              # AI Content Writer, Email Composer
+│   ├── forms/           # Client, Content, Deliverable, Invoice, Task forms
+│   ├── layout/          # AppLayout, AppSidebar
+│   └── ui/              # shadcn/ui components
+├── contexts/            # AuthContext (Supabase Auth)
+├── hooks/               # React Query hooks for all data operations
+├── lib/                 # Supabase client, AI service, validations, utils
+├── pages/               # All route pages
+├── test/                # Test suite (289 tests)
+└── types/               # TypeScript types + DB mapping functions
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Testing
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The project includes a comprehensive test suite with **289 tests** across 20 test files:
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| Type Mapping Functions | 41 | All `map*()` and `to*Row()` functions |
+| Validation Schemas | 89 | All 8 Zod schemas with valid/invalid/edge cases |
+| Utility Functions | 9 | Helper utilities |
+| Mock Data Integrity | 45 | Data structure validation |
+| Custom Hooks | 62 | All 8 data hooks with Supabase mocking |
+| Auth Context | 10 | Session management, role checking |
+| Protected Route | 6 | Redirects, role-based access |
+| Form Components | 26 | Rendering, defaults, loading, validation |
+
+## License
+
+Private — OnnifyWorks Digital Marketing Agency
