@@ -3,66 +3,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { Client, Deliverable, Invoice, Task } from "@/types";
-import { useMutation } from "@tanstack/react-query";
+import { useAIInsights } from "@/hooks/use-ai";
 
 interface ReportInsightsProps {
   clients: Client[];
   deliverables: Deliverable[];
   invoices: Invoice[];
   tasks: Task[];
+  market?: string;
 }
 
-async function generateInsights(context: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY ||
-    "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";
-
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "OnnifyWorks CRM",
-    },
-    body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "system",
-          content: `You are an analytics advisor for OnnifyWorks, a digital marketing agency operating in Singapore, Indonesia, and the US. Provide actionable insights in a concise format. Use bullet points. Be specific with numbers. Focus on what needs attention and what's going well. Keep it under 200 words.`,
-        },
-        { role: "user", content: context },
-      ],
-    }),
-  });
-
-  if (!res.ok) throw new Error(`AI request failed (${res.status})`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
-}
-
-export function ReportInsights({ clients, deliverables, invoices, tasks }: ReportInsightsProps) {
+export function ReportInsights({ clients, deliverables, invoices, tasks, market }: ReportInsightsProps) {
   const [expanded, setExpanded] = useState(true);
+  const insightsMutation = useAIInsights();
 
-  const mutation = useMutation({
-    mutationFn: () => {
-      const now = new Date();
-      const activeClients = clients.filter((c) => c.status === "Active");
-      const overdueDeliverables = deliverables.filter(
-        (d) => new Date(d.dueDate) < now && d.status !== "Delivered" && d.status !== "Approved"
-      );
-      const completedDeliverables = deliverables.filter(
-        (d) => d.status === "Delivered" || d.status === "Approved"
-      );
-      const paidInvoices = invoices.filter((i) => i.status === "Paid");
-      const overdueInvoices = invoices.filter((i) => i.status === "Overdue");
-      const totalRevenue = paidInvoices.reduce((s, i) => s + i.amount, 0);
-      const overdueRevenue = overdueInvoices.reduce((s, i) => s + i.amount, 0);
-      const completedTasks = tasks.filter((t) => t.status === "Done");
-      const blockedTasks = tasks.filter((t) => t.status === "Blocked");
+  const handleGenerate = () => {
+    const now = new Date();
+    const activeClients = clients.filter((c) => c.status === "Active");
+    const overdueDeliverables = deliverables.filter(
+      (d) => new Date(d.dueDate) < now && d.status !== "Delivered" && d.status !== "Approved"
+    );
+    const completedDeliverables = deliverables.filter(
+      (d) => d.status === "Delivered" || d.status === "Approved"
+    );
+    const paidInvoices = invoices.filter((i) => i.status === "Paid");
+    const overdueInvoices = invoices.filter((i) => i.status === "Overdue");
+    const totalRevenue = paidInvoices.reduce((s, i) => s + i.amount, 0);
+    const overdueRevenue = overdueInvoices.reduce((s, i) => s + i.amount, 0);
+    const completedTasks = tasks.filter((t) => t.status === "Done");
+    const blockedTasks = tasks.filter((t) => t.status === "Blocked");
 
-      const context = `Analyze this agency's performance:
+    const context = `Analyze this agency's performance:
 - ${activeClients.length} active clients across SG (${activeClients.filter((c) => c.market === "SG").length}), ID (${activeClients.filter((c) => c.market === "ID").length}), US (${activeClients.filter((c) => c.market === "US").length})
 - Total MRR from active clients: $${activeClients.reduce((s, c) => s + c.monthlyValue, 0).toLocaleString()}
 - ${deliverables.length} total deliverables: ${completedDeliverables.length} completed, ${overdueDeliverables.length} overdue
@@ -74,9 +45,8 @@ export function ReportInsights({ clients, deliverables, invoices, tasks }: Repor
 
 Provide: 1) Key strengths, 2) Areas needing attention, 3) Specific actions to take this week.`;
 
-      return generateInsights(context);
-    },
-  });
+    insightsMutation.mutate({ context, market });
+  };
 
   return (
     <Card className="border-primary/20">
@@ -85,8 +55,8 @@ Provide: 1) Key strengths, 2) Areas needing attention, 3) Specific actions to ta
           <Sparkles className="h-4 w-4 text-primary" /> AI Performance Insights
         </CardTitle>
         <div className="flex gap-1">
-          {mutation.data && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => mutation.mutate()}>
+          {insightsMutation.data && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerate}>
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -102,23 +72,23 @@ Provide: 1) Key strengths, 2) Areas needing attention, 3) Specific actions to ta
       </CardHeader>
       {expanded && (
         <CardContent>
-          {mutation.data ? (
+          {insightsMutation.data ? (
             <div className="prose prose-sm max-w-none text-sm">
-              {mutation.data.split("\n").map((line, i) => (
+              {insightsMutation.data.split("\n").map((line, i) => (
                 <p key={i} className={`${line.startsWith("-") || line.startsWith("*") ? "pl-2" : ""} ${line.startsWith("#") ? "font-semibold text-foreground" : "text-muted-foreground"} mb-1`}>
                   {line.replace(/^#+\s*/, "").replace(/^\*\*(.+)\*\*$/, "$1")}
                 </p>
               ))}
             </div>
-          ) : mutation.isPending ? (
+          ) : insightsMutation.isPending ? (
             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Analyzing your data...</span>
             </div>
-          ) : mutation.isError ? (
+          ) : insightsMutation.isError ? (
             <div className="text-center py-6">
-              <p className="text-sm text-destructive mb-2">{mutation.error?.message}</p>
-              <Button variant="outline" size="sm" onClick={() => mutation.mutate()}>
+              <p className="text-sm text-destructive mb-2">{insightsMutation.error?.message}</p>
+              <Button variant="outline" size="sm" onClick={handleGenerate}>
                 Retry
               </Button>
             </div>
@@ -127,7 +97,7 @@ Provide: 1) Key strengths, 2) Areas needing attention, 3) Specific actions to ta
               <p className="text-sm text-muted-foreground mb-3">
                 Get AI-powered analysis of your agency's performance, trends, and actionable recommendations.
               </p>
-              <Button onClick={() => mutation.mutate()} size="sm">
+              <Button onClick={handleGenerate} size="sm">
                 <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate Insights
               </Button>
             </div>

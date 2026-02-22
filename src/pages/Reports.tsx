@@ -12,6 +12,7 @@ import { useState } from "react";
 import { ReportInsights } from "@/components/ai/ReportInsights";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
 import { Progress } from "@/components/ui/progress";
+import { HealthRadialGauge } from "@/components/ai/HealthRadialGauge";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -128,6 +129,7 @@ export default function Reports() {
         deliverables={filteredDeliverables}
         invoices={filteredInvoices}
         tasks={filteredTasks}
+        market={marketFilter !== "all" ? marketFilter : undefined}
       />
 
       {/* Summary Stats */}
@@ -249,32 +251,35 @@ export default function Reports() {
         </CardHeader>
         <CardContent>
           {clientHealth.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {clientHealth.map((ch) => (
-                <div key={ch.clientId} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold border ${getGradeColor(ch.grade)}`}>
-                      {ch.grade}
-                    </span>
-                    <div>
+                <div key={ch.clientId} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+                  <HealthRadialGauge score={ch.score} size={72} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold border ${getGradeColor(ch.grade)}`}>
+                        {ch.grade}
+                      </span>
                       <p className="text-sm font-medium">{ch.companyName}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {ch.factors.map((f) => (
-                          <span key={f.name} className="text-[10px] text-muted-foreground">
-                            {f.name}: {f.score}%
-                          </span>
-                        ))}
-                      </div>
+                      <Badge variant="outline" className="text-xs">{ch.market}</Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {ch.factors.map((f) => (
+                        <div key={f.name} className="space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{f.name}</span>
+                            <span className="text-[10px] font-mono">{f.score}%</span>
+                          </div>
+                          <Progress value={f.score} className="h-1" />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className={`text-sm font-mono font-bold ${getTrendColor(ch.trend)}`}>
-                        {ch.score} {getTrendIcon(ch.trend)}
-                      </span>
-                      <p className="text-xs text-muted-foreground">${ch.monthlyValue}/mo</p>
-                    </div>
-                    <Badge variant="outline">{ch.market}</Badge>
+                  <div className="text-right flex-shrink-0">
+                    <span className={`text-sm font-mono font-bold ${getTrendColor(ch.trend)}`}>
+                      {ch.score} {getTrendIcon(ch.trend)}
+                    </span>
+                    <p className="text-xs text-muted-foreground">${ch.monthlyValue}/mo</p>
                   </div>
                 </div>
               ))}

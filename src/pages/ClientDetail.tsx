@@ -18,12 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send } from "lucide-react";
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send, Loader2, BrainCircuit } from "lucide-react";
 import { ClientStatus, DeliverableStatus, InvoiceStatus, Contact, ContactRole } from "@/types";
 import { EmailComposer } from "@/components/ai/EmailComposer";
 import { ActivityTimeline } from "@/components/ActivityTimeline";
 import { Progress } from "@/components/ui/progress";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
+import { HealthRadialGauge } from "@/components/ai/HealthRadialGauge";
+import { useClientHealthNarrative } from "@/hooks/use-ai";
 
 const contactRoleLabels: Record<ContactRole, string> = {
   primary: "Primary",
@@ -55,6 +57,80 @@ const invoiceStatusColor: Record<InvoiceStatus, string> = {
   Paid: "bg-success/10 text-success",
   Overdue: "bg-destructive/10 text-destructive",
 };
+
+function ClientHealthCard({ clientId, client, deliverables, invoices, tasks }: {
+  clientId: string;
+  client: { companyName: string; market: string; planTier: string; monthlyValue: number };
+  deliverables: any[];
+  invoices: any[];
+  tasks: any[];
+}) {
+  const health = calculateHealthScore(client as any, deliverables, invoices, tasks);
+  const narrativeMutation = useClientHealthNarrative();
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium">Client Health Score</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold border ${getGradeColor(health.grade)}`}>
+              {health.grade}
+            </span>
+            <span className={`text-lg font-mono font-bold ${getTrendColor(health.trend)}`}>
+              {health.score}/100 {getTrendIcon(health.trend)}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-6">
+          <HealthRadialGauge score={health.score} size={100} label="Overall" />
+          <div className="flex-1 grid grid-cols-2 gap-3">
+            {health.factors.map((f) => (
+              <div key={f.name} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{f.name}</span>
+                  <span className="text-xs font-mono font-medium">{f.score}%</span>
+                </div>
+                <Progress value={f.score} className="h-1.5" />
+                <p className="text-[10px] text-muted-foreground">{f.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Narrative */}
+        {narrativeMutation.data?.narrative ? (
+          <div className="rounded-lg bg-primary/5 border border-primary/10 p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <BrainCircuit className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-primary">AI Analysis</span>
+            </div>
+            <p className="text-sm text-muted-foreground">{narrativeMutation.data.narrative}</p>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={narrativeMutation.isPending}
+            onClick={() => narrativeMutation.mutate(clientId)}
+          >
+            {narrativeMutation.isPending ? (
+              <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> Analyzing...</>
+            ) : (
+              <><BrainCircuit className="h-3.5 w-3.5 mr-2" /> Generate AI Health Analysis</>
+            )}
+          </Button>
+        )}
+        {narrativeMutation.isError && (
+          <p className="text-xs text-destructive">{narrativeMutation.error?.message}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -212,40 +288,7 @@ export default function ClientDetail() {
       <EmailComposer open={emailComposerOpen} onOpenChange={setEmailComposerOpen} client={client} />
 
       {/* Health Score Card */}
-      {client.status === "Active" && (() => {
-        const health = calculateHealthScore(client, deliverables, invoices, tasks);
-        return (
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Client Health Score</CardTitle>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold border ${getGradeColor(health.grade)}`}>
-                    {health.grade}
-                  </span>
-                  <span className={`text-lg font-mono font-bold ${getTrendColor(health.trend)}`}>
-                    {health.score}/100 {getTrendIcon(health.trend)}
-                  </span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {health.factors.map((f) => (
-                  <div key={f.name} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">{f.name}</span>
-                      <span className="text-xs font-mono font-medium">{f.score}%</span>
-                    </div>
-                    <Progress value={f.score} className="h-1.5" />
-                    <p className="text-[10px] text-muted-foreground">{f.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+      {client.status === "Active" && <ClientHealthCard clientId={client.id} client={client} deliverables={deliverables} invoices={invoices} tasks={tasks} />}
       {/* Tabs: Deliverables, Invoices, Tasks */}
       <Tabs defaultValue="deliverables">
         <TabsList>

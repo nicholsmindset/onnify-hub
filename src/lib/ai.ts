@@ -1,8 +1,25 @@
-const OPENROUTER_API_KEY =
-  import.meta.env.VITE_OPENROUTER_API_KEY || "";
+import { supabase } from "./supabase";
 
+// ============================================
+// EDGE FUNCTION + DIRECT CALL INFRASTRUCTURE
+// ============================================
+
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || "";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "anthropic/claude-sonnet-4";
+
+/**
+ * Try calling a Supabase Edge Function first.
+ * Falls back to direct OpenRouter call if the Edge Function is not deployed.
+ */
+async function callEdgeFunction<T>(
+  fnName: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(fnName, { body });
+  if (error) throw error;
+  return data as T;
+}
 
 interface AIRequestOptions {
   systemPrompt: string;
@@ -65,6 +82,17 @@ export interface ContentGenerateParams {
 }
 
 export async function generateContent(params: ContentGenerateParams): Promise<string> {
+  // Try Edge Function first
+  try {
+    const result = await callEdgeFunction<{ content: string }>("ai-content", {
+      action: "generate",
+      ...params,
+    });
+    return result.content;
+  } catch {
+    // Fallback to direct call
+  }
+
   const systemPrompt = `You are an expert content writer for a digital marketing agency called OnnifyWorks.
 You specialize in creating high-quality content for clients across Singapore, Indonesia, and the US.
 Write in a ${params.tone || "professional"} tone. Be concise, engaging, and action-oriented.
@@ -82,6 +110,18 @@ Output ONLY the content itself — no meta-commentary, no "Here's the content:",
 }
 
 export async function refineContent(content: string, instruction: string): Promise<string> {
+  // Try Edge Function first
+  try {
+    const result = await callEdgeFunction<{ content: string }>("ai-content", {
+      action: "refine",
+      content,
+      instruction,
+    });
+    return result.content;
+  } catch {
+    // Fallback to direct call
+  }
+
   const systemPrompt = `You are an expert content editor for a digital marketing agency.
 Improve the given content based on the user's instruction.
 Output ONLY the improved content — no commentary.`;
@@ -112,6 +152,14 @@ export interface EmailDraft {
 }
 
 export async function generateEmail(params: EmailDraftParams): Promise<EmailDraft> {
+  // Try Edge Function first
+  try {
+    const result = await callEdgeFunction<EmailDraft>("ai-email", params);
+    return { subject: result.subject || "", body: result.body || "" };
+  } catch {
+    // Fallback to direct call
+  }
+
   const systemPrompt = `You are a professional account manager at OnnifyWorks, a digital marketing agency.
 Draft emails that are warm, professional, and action-oriented.
 You MUST respond in valid JSON format with exactly two keys: "subject" and "body".
@@ -138,4 +186,45 @@ Do NOT wrap the JSON in code blocks. Output raw JSON only.`;
       body: raw,
     };
   }
+}
+
+// ============================================
+// REPORT INSIGHTS (Edge Function with fallback)
+// ============================================
+
+export async function generateInsights(context: string, market?: string): Promise<string> {
+  // Try Edge Function first — aggregates data server-side
+  try {
+    const result = await callEdgeFunction<{ insights: string }>("ai-insights", {
+      market: market || "all",
+    });
+    return result.insights;
+  } catch {
+    // Fallback to direct call with provided context
+  }
+
+  const systemPrompt = `You are an analytics advisor for OnnifyWorks, a digital marketing agency operating in Singapore, Indonesia, and the US. Provide actionable insights in a concise format. Use bullet points. Be specific with numbers. Focus on what needs attention and what's going well. Keep it under 200 words.`;
+
+  return callAI({ systemPrompt, userPrompt: context, maxTokens: 1024 });
+}
+
+// ============================================
+// CLIENT HEALTH (AI NARRATIVE)
+// ============================================
+
+export interface HealthNarrativeResult {
+  clientId: string;
+  score: number;
+  factors: {
+    deliveryRate: number;
+    onTimeScore: number;
+    paymentScore: number;
+    engagementScore: number;
+  };
+  narrative: string;
+  calculatedAt: string;
+}
+
+export async function getClientHealthNarrative(clientId: string): Promise<HealthNarrativeResult> {
+  return callEdgeFunction<HealthNarrativeResult>("client-health", { clientId });
 }
