@@ -136,11 +136,21 @@ export default function ContentPipeline() {
     const { active, over } = event;
     if (!over) return;
 
-    const newStatus = over.id as ContentStatus;
     const itemId = active.id as string;
     const current = content.find((c) => c.id === itemId);
+    let newStatus = over.id as ContentStatus;
 
-    if (current && current.status !== newStatus && columns.includes(newStatus)) {
+    // If dropped on a card instead of a column, use that card's status
+    if (!columns.includes(newStatus)) {
+      const targetItem = content.find((c) => c.id === over.id);
+      if (targetItem) {
+        newStatus = targetItem.status;
+      } else {
+        return;
+      }
+    }
+
+    if (current && current.status !== newStatus) {
       updateMutation.mutate({ id: itemId, status: newStatus });
     }
   };

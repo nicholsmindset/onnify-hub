@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { ClerkProvider } from "@clerk/clerk-react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -26,52 +25,44 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
-if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables");
-}
-
 const App = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/login/*" element={<Login />} />
-                <Route path="/register/*" element={<Register />} />
-                <Route path="/portal" element={<Portal />} />
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/portal" element={<Portal />} />
 
-                {/* Protected app routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/clients" element={<Clients />} />
-                    <Route path="/clients/:id" element={<ClientDetail />} />
-                    <Route path="/deliverables" element={<Deliverables />} />
-                    <Route path="/invoices" element={<Invoices />} />
-                    <Route path="/tasks" element={<Tasks />} />
-                    <Route path="/content" element={<ContentPipeline />} />
-                    <Route path="/ghl-sync" element={<GhlSync />} />
-                    <Route path="/notifications" element={<Notifications />} />
-                    <Route path="/reports" element={<Reports />} />
-                    <Route path="/portal-admin" element={<PortalAdmin />} />
-                  </Route>
+              {/* Protected app routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/clients" element={<Clients />} />
+                  <Route path="/clients/:id" element={<ClientDetail />} />
+                  <Route path="/deliverables" element={<Deliverables />} />
+                  <Route path="/invoices" element={<Invoices />} />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/content" element={<ContentPipeline />} />
+                  <Route path="/ghl-sync" element={<GhlSync />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/portal-admin" element={<PortalAdmin />} />
                 </Route>
+              </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  </ClerkProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
 );
 
 export default App;

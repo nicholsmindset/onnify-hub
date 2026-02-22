@@ -133,11 +133,21 @@ export default function Tasks() {
     const { active, over } = event;
     if (!over) return;
 
-    const newStatus = over.id as TaskStatus;
     const taskId = active.id as string;
     const current = tasks.find((t) => t.id === taskId);
+    let newStatus = over.id as TaskStatus;
 
-    if (current && current.status !== newStatus && columns.includes(newStatus)) {
+    // If dropped on a card instead of a column, use that card's status
+    if (!columns.includes(newStatus)) {
+      const targetItem = tasks.find((t) => t.id === over.id);
+      if (targetItem) {
+        newStatus = targetItem.status;
+      } else {
+        return;
+      }
+    }
+
+    if (current && current.status !== newStatus) {
       updateMutation.mutate({ id: taskId, status: newStatus });
     }
   };

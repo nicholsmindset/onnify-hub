@@ -17,7 +17,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { UserButton } from "@clerk/clerk-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const mainNavItems = [
@@ -103,14 +102,11 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-3">
         <div className="flex items-center gap-2 px-1">
-          <UserButton
-            afterSignOutUrl="/login"
-            appearance={{
-              elements: {
-                avatarBox: "h-7 w-7",
-              },
-            }}
-          />
+          <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <span className="text-primary-foreground text-xs font-bold">
+              {profile?.fullName?.charAt(0)?.toUpperCase() ?? "U"}
+            </span>
+          </div>
           {!collapsed && profile && (
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate">{profile.fullName}</p>

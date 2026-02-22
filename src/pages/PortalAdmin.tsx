@@ -12,9 +12,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, ExternalLink, Copy, Trash2, Globe } from "lucide-react";
+import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check } from "lucide-react";
 import { PortalAccess } from "@/types";
 import { toast } from "sonner";
+
+function buildPortalUrl(token: string) {
+  return `${window.location.origin}/portal?token=${token}`;
+}
+
+function buildMailtoLink(email: string, contactName: string, clientName: string, portalUrl: string) {
+  const subject = encodeURIComponent(`Your ONNIFY WORKS Client Portal Access`);
+  const body = encodeURIComponent(
+    `Hi ${contactName},\n\n` +
+    `You have been granted access to the ${clientName} project dashboard on ONNIFY WORKS.\n\n` +
+    `Click the link below to access your portal:\n${portalUrl}\n\n` +
+    `You can bookmark this link for future access. If you have any questions, feel free to reply to this email.\n\n` +
+    `Best regards,\nONNIFY WORKS Team`
+  );
+  return `mailto:${email}?subject=${subject}&body=${body}`;
+}
 
 export default function PortalAdmin() {
   const { data: accesses = [], isLoading } = usePortalAccessList();
@@ -29,16 +45,34 @@ export default function PortalAdmin() {
   const [contactName, setContactName] = useState("");
   const [deleteAccess, setDeleteAccess] = useState<PortalAccess | null>(null);
 
+  // State for the "access created" success dialog
+  const [createdAccess, setCreatedAccess] = useState<{ token: string; contactName: string; contactEmail: string; clientName: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const existingClientIds = accesses.map((a) => a.clientId);
   const availableClients = clients.filter((c) => !existingClientIds.includes(c.id));
 
+  const getClientName = (clientId: string) => {
+    return clients.find((c) => c.id === clientId)?.companyName || "Unknown";
+  };
+
   const handleCreate = () => {
     if (!selectedClientId || !contactEmail || !contactName) return;
+    const clientName = getClientName(selectedClientId);
     createMutation.mutate(
       { clientId: selectedClientId, contactEmail, contactName, isActive: true },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setCreateOpen(false);
+          // Show the success dialog with portal link
+          setCreatedAccess({
+            token: data.accessToken,
+            contactName,
+            contactEmail,
+            clientName,
+          });
+          setLinkCopied(false);
+          // Reset create form
           setSelectedClientId("");
           setContactEmail("");
           setContactName("");
@@ -53,13 +87,17 @@ export default function PortalAdmin() {
   };
 
   const copyPortalLink = (token: string) => {
-    const url = `${window.location.origin}/portal?token=${token}`;
+    const url = buildPortalUrl(token);
     navigator.clipboard.writeText(url);
     toast.success("Portal link copied to clipboard");
   };
 
-  const getClientName = (clientId: string) => {
-    return clients.find((c) => c.id === clientId)?.companyName || "Unknown";
+  const sendInviteEmail = (access: PortalAccess) => {
+    const clientName = getClientName(access.clientId);
+    const portalUrl = buildPortalUrl(access.accessToken);
+    const mailto = buildMailtoLink(access.contactEmail, access.contactName, clientName, portalUrl);
+    window.open(mailto, "_blank");
+    toast.success(`Opening email to ${access.contactEmail}`);
   };
 
   if (isLoading) {
@@ -109,12 +147,69 @@ export default function PortalAdmin() {
                 <Input type="email" placeholder="john@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
               </div>
               <Button onClick={handleCreate} className="w-full" disabled={!selectedClientId || !contactEmail || !contactName || createMutation.isPending}>
-                {createMutation.isPending ? "Creating..." : "Create Access"}
+                {createMutation.isPending ? "Creating..." : "Create & Send Access"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Success dialog - shown after creating portal access */}
+      <Dialog open={!!createdAccess} onOpenChange={(open) => !open && setCreatedAccess(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Portal Access Created</DialogTitle>
+          </DialogHeader>
+          {createdAccess && (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Access has been created for <span className="font-medium text-foreground">{createdAccess.contactName}</span> ({createdAccess.clientName}).
+                Share the portal link below with the client.
+              </p>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Portal Link</Label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={buildPortalUrl(createdAccess.token)}
+                    className="text-xs font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(buildPortalUrl(createdAccess.token));
+                      setLinkCopied(true);
+                      toast.success("Link copied!");
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }}
+                  >
+                    {linkCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    const portalUrl = buildPortalUrl(createdAccess.token);
+                    const mailto = buildMailtoLink(createdAccess.contactEmail, createdAccess.contactName, createdAccess.clientName, portalUrl);
+                    window.open(mailto, "_blank");
+                    toast.success(`Opening email to ${createdAccess.contactEmail}`);
+                  }}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Email to {createdAccess.contactName}
+                </Button>
+              </div>
+              <Button variant="outline" className="w-full" onClick={() => setCreatedAccess(null)}>
+                Done
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -157,7 +252,7 @@ export default function PortalAdmin() {
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Accessed</TableHead>
-              <TableHead className="w-[140px]">Actions</TableHead>
+              <TableHead className="w-[180px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -178,6 +273,9 @@ export default function PortalAdmin() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
+                      <Mail className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy portal link" onClick={() => copyPortalLink(access.accessToken)}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>

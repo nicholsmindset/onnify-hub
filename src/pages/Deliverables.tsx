@@ -142,11 +142,21 @@ export default function Deliverables() {
     const { active, over } = event;
     if (!over) return;
 
-    const newStatus = over.id as DeliverableStatus;
     const deliverableId = active.id as string;
     const current = deliverables.find((d) => d.id === deliverableId);
+    let newStatus = over.id as DeliverableStatus;
 
-    if (current && current.status !== newStatus && columns.includes(newStatus)) {
+    // If dropped on a card instead of a column, use that card's status
+    if (!columns.includes(newStatus)) {
+      const targetItem = deliverables.find((d) => d.id === over.id);
+      if (targetItem) {
+        newStatus = targetItem.status;
+      } else {
+        return;
+      }
+    }
+
+    if (current && current.status !== newStatus) {
       const updates: Partial<Deliverable> & { id: string } = { id: deliverableId, status: newStatus };
       if (newStatus === "Delivered" && !current.deliveryDate) {
         updates.deliveryDate = new Date().toISOString().split("T")[0];
