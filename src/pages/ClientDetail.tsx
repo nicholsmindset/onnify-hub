@@ -33,6 +33,9 @@ const contactRoleLabels: Record<ContactRole, string> = {
   technical: "Technical",
   other: "Other",
 };
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Mail } from "lucide-react";
+import { ClientStatus, DeliverableStatus, InvoiceStatus } from "@/types";
+import { EmailComposer } from "@/components/ai/EmailComposer";
 
 const statusColor: Record<ClientStatus, string> = {
   Prospect: "bg-muted text-muted-foreground",
@@ -114,6 +117,7 @@ export default function ClientDetail() {
     if (!deleteContactTarget) return;
     deleteContact.mutate(deleteContactTarget.id, { onSuccess: () => setDeleteContactTarget(null) });
   };
+  const [emailOpen, setEmailOpen] = useState(false);
 
   if (loadingClient) {
     return (
@@ -197,6 +201,10 @@ export default function ClientDetail() {
             </div>
           )}
           <div className="flex gap-2 mt-4">
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)}>
+              <Mail className="h-3.5 w-3.5 mr-2" /> Draft Email with AI
+            </Button>
             {client.ghlUrl && (
               <a href={client.ghlUrl} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">
@@ -248,6 +256,21 @@ export default function ClientDetail() {
           </Card>
         );
       })()}
+      {/* AI Email Composer */}
+      <EmailComposer
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        clientContext={{
+          companyName: client.companyName,
+          primaryContact: client.primaryContact,
+          industry: client.industry,
+          market: client.market,
+          planTier: client.planTier,
+          monthlyValue: client.monthlyValue,
+        }}
+        deliverables={deliverables.map((d) => ({ name: d.name, status: d.status, serviceType: d.serviceType }))}
+        invoices={invoices.map((i) => ({ invoiceId: i.invoiceId, status: i.status, amount: i.amount, currency: i.currency }))}
+      />
 
       {/* Tabs: Deliverables, Invoices, Tasks */}
       <Tabs defaultValue="deliverables">
