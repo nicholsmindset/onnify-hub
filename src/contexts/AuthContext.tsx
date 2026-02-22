@@ -1,10 +1,13 @@
-import { createContext, useContext, ReactNode } from "react";
-import { useUser, useClerk, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 import type { UserProfile, UserRole } from "@/types";
+import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   isSignedIn: boolean;
   isLoading: boolean;
+  user: User | null;
+  session: Session | null;
   profile: UserProfile | null;
   signOut: () => Promise<void>;
   hasRole: (role: UserRole | UserRole[]) => boolean;
@@ -13,25 +16,44 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user, isLoaded: isUserLoaded } = useUser();
-  const { isSignedIn, isLoaded: isAuthLoaded } = useClerkAuth();
-  const { signOut: clerkSignOut } = useClerk();
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isLoading = !isUserLoaded || !isAuthLoaded;
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      setIsLoading(false);
+    });
 
-  const profile: UserProfile | null =
-    user && isSignedIn
-      ? {
-          id: user.id,
-          email: user.primaryEmailAddress?.emailAddress ?? "",
-          fullName: user.fullName ?? user.firstName ?? "User",
-          role: (user.publicMetadata?.role as UserRole) ?? "member",
-          avatarUrl: user.imageUrl,
-        }
-      : null;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const isSignedIn = !!session;
+
+  const profile: UserProfile | null = user
+    ? {
+        id: user.id,
+        email: user.email ?? "",
+        fullName:
+          user.user_metadata?.full_name ??
+          user.user_metadata?.name ??
+          user.email?.split("@")[0] ??
+          "User",
+        role: (user.user_metadata?.role as UserRole) ?? "member",
+        avatarUrl: user.user_metadata?.avatar_url,
+      }
+    : null;
 
   const signOut = async () => {
-    await clerkSignOut();
+    await supabase.auth.signOut();
   };
 
   const hasRole = (role: UserRole | UserRole[]) => {
@@ -41,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isSignedIn: !!isSignedIn, isLoading, profile, signOut, hasRole }}>
+    <AuthContext.Provider value={{ isSignedIn, isLoading, user, session, profile, signOut, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

@@ -4,14 +4,18 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/hooks/use-notifications";
 import { Button } from "@/components/ui/button";
-import { Bell } from "lucide-react";
-import { UserButton } from "@clerk/clerk-react";
+import { Bell, LogOut } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const { data: notifications = [] } = useNotifications(profile?.fullName);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <SidebarProvider>
@@ -29,7 +33,9 @@ export function AppLayout() {
                   </span>
                 )}
               </Button>
-              <UserButton afterSignOutUrl="/login" />
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out">
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </header>
           <div className="flex-1 p-6 overflow-auto">

@@ -1,36 +1,35 @@
-import { describe, it, expect, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
-// Mock Clerk hooks
+// Mock Supabase auth
+const mockSignOut = vi.fn().mockResolvedValue({});
+let mockSession: { user: typeof mockUser } | null = null;
+const mockSubscription = { unsubscribe: vi.fn() };
+let authChangeCallback: (event: string, session: typeof mockSession) => void;
+
 const mockUser = {
   id: "user-123",
-  primaryEmailAddress: { emailAddress: "admin@example.com" },
-  fullName: "Admin User",
-  firstName: "Admin",
-  imageUrl: "https://example.com/avatar.png",
-  publicMetadata: { role: "admin" },
+  email: "admin@example.com",
+  user_metadata: {
+    full_name: "Admin User",
+    role: "admin",
+    avatar_url: "https://example.com/avatar.png",
+  },
 };
 
-let mockIsSignedIn = true;
-let mockIsUserLoaded = true;
-let mockIsAuthLoaded = true;
-let mockUserValue: typeof mockUser | null = mockUser;
-const mockSignOut = vi.fn();
-
-vi.mock("@clerk/clerk-react", () => ({
-  useUser: () => ({
-    user: mockUserValue,
-    isLoaded: mockIsUserLoaded,
-  }),
-  useAuth: () => ({
-    isSignedIn: mockIsSignedIn,
-    isLoaded: mockIsAuthLoaded,
-  }),
-  useClerk: () => ({
-    signOut: mockSignOut,
-  }),
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: mockSession } }),
+      onAuthStateChange: (cb: typeof authChangeCallback) => {
+        authChangeCallback = cb;
+        return { data: { subscription: mockSubscription } };
+      },
+      signOut: () => mockSignOut(),
+    },
+  },
 }));
 
 function createWrapper() {
@@ -40,24 +39,27 @@ function createWrapper() {
 }
 
 describe("AuthProvider and useAuth", () => {
+  beforeEach(() => {
+    mockSession = null;
+    vi.clearAllMocks();
+  });
+
   it("should throw error when used outside AuthProvider", () => {
     expect(() => {
       renderHook(() => useAuth());
     }).toThrow("useAuth must be used within AuthProvider");
   });
 
-  it("should provide auth context when signed in", () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = mockUser;
+  it("should provide auth context when signed in", async () => {
+    mockSession = { user: mockUser };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
     expect(result.current.isSignedIn).toBe(true);
-    expect(result.current.isLoading).toBe(false);
     expect(result.current.profile).not.toBeNull();
     expect(result.current.profile?.id).toBe("user-123");
     expect(result.current.profile?.email).toBe("admin@example.com");
@@ -66,129 +68,123 @@ describe("AuthProvider and useAuth", () => {
     expect(result.current.profile?.avatarUrl).toBe("https://example.com/avatar.png");
   });
 
-  it("should show loading when user not loaded", () => {
-    mockIsUserLoaded = false;
-    mockIsAuthLoaded = true;
-
+  it("should show loading initially", () => {
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
+    // Initially loading is true before getSession resolves
     expect(result.current.isLoading).toBe(true);
   });
 
-  it("should show loading when auth not loaded", () => {
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = false;
+  it("should return null profile when not signed in", async () => {
+    mockSession = null;
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
-    expect(result.current.isLoading).toBe(true);
-  });
-
-  it("should return null profile when not signed in", () => {
-    mockIsSignedIn = false;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = null;
-
-    const { result } = renderHook(() => useAuth(), {
-      wrapper: createWrapper(),
-    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.isSignedIn).toBe(false);
     expect(result.current.profile).toBeNull();
   });
 
-  it("hasRole should return true for matching single role", () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = mockUser;
+  it("hasRole should return true for matching single role", async () => {
+    mockSession = { user: mockUser };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.hasRole("admin")).toBe(true);
     expect(result.current.hasRole("member")).toBe(false);
     expect(result.current.hasRole("viewer")).toBe(false);
   });
 
-  it("hasRole should return true for matching role in array", () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = mockUser;
+  it("hasRole should return true for matching role in array", async () => {
+    mockSession = { user: mockUser };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.hasRole(["admin", "member"])).toBe(true);
     expect(result.current.hasRole(["member", "viewer"])).toBe(false);
   });
 
-  it("hasRole should return false when no profile", () => {
-    mockIsSignedIn = false;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = null;
+  it("hasRole should return false when no profile", async () => {
+    mockSession = null;
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.hasRole("admin")).toBe(false);
     expect(result.current.hasRole(["admin", "member"])).toBe(false);
   });
 
-  it("signOut should call Clerk signOut", async () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = mockUser;
+  it("signOut should call supabase signOut", async () => {
+    mockSession = { user: mockUser };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
-    await result.current.signOut();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.signOut();
+    });
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it("should use firstName as fallback when fullName is null", () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = {
-      ...mockUser,
-      fullName: null as unknown as string,
-      firstName: "Admin",
+  it("should use email prefix as fallback when full_name is missing", async () => {
+    mockSession = {
+      user: {
+        ...mockUser,
+        user_metadata: { role: "member" },
+      },
     };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
-    expect(result.current.profile?.fullName).toBe("Admin");
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.profile?.fullName).toBe("admin");
   });
 
-  it("should default role to 'member' when publicMetadata has no role", () => {
-    mockIsSignedIn = true;
-    mockIsUserLoaded = true;
-    mockIsAuthLoaded = true;
-    mockUserValue = {
-      ...mockUser,
-      publicMetadata: {},
+  it("should default role to 'member' when metadata has no role", async () => {
+    mockSession = {
+      user: {
+        ...mockUser,
+        user_metadata: { full_name: "Test User" },
+      },
     };
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
 
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
     expect(result.current.profile?.role).toBe("member");
+  });
+
+  it("should unsubscribe on unmount", async () => {
+    const { unmount } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    unmount();
+    expect(mockSubscription.unsubscribe).toHaveBeenCalled();
   });
 });

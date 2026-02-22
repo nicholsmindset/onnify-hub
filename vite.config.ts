@@ -18,11 +18,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  define: {
-    // Allow NEXT_PUBLIC_ prefixed env vars to work in Vite
-    ...(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && !process.env.VITE_CLERK_PUBLISHABLE_KEY
-      ? { "import.meta.env.VITE_CLERK_PUBLISHABLE_KEY": JSON.stringify(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) }
-      : {}),
-  },
-  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
 }));
