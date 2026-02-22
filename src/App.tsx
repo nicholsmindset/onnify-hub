@@ -28,50 +28,62 @@ const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables");
-}
+const AppRoutes = () => (
+  <BrowserRouter>
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login/*" element={<Login />} />
+      <Route path="/register/*" element={<Register />} />
+      <Route path="/portal" element={<Portal />} />
 
-const App = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/login/*" element={<Login />} />
-                <Route path="/register/*" element={<Register />} />
-                <Route path="/portal" element={<Portal />} />
+      {/* Protected app routes */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/clients/:id" element={<ClientDetail />} />
+          <Route path="/deliverables" element={<Deliverables />} />
+          <Route path="/invoices" element={<Invoices />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/content" element={<ContentPipeline />} />
+          <Route path="/ghl-sync" element={<GhlSync />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/portal-admin" element={<PortalAdmin />} />
+        </Route>
+      </Route>
 
-                {/* Protected app routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/clients" element={<Clients />} />
-                    <Route path="/clients/:id" element={<ClientDetail />} />
-                    <Route path="/deliverables" element={<Deliverables />} />
-                    <Route path="/invoices" element={<Invoices />} />
-                    <Route path="/tasks" element={<Tasks />} />
-                    <Route path="/content" element={<ContentPipeline />} />
-                    <Route path="/ghl-sync" element={<GhlSync />} />
-                    <Route path="/notifications" element={<Notifications />} />
-                    <Route path="/reports" element={<Reports />} />
-                    <Route path="/portal-admin" element={<PortalAdmin />} />
-                  </Route>
-                </Route>
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  </ClerkProvider>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </BrowserRouter>
 );
+
+const App = () => {
+  if (!CLERK_PUBLISHABLE_KEY) {
+    return (
+      <div style={{ padding: "2rem", fontFamily: "system-ui", maxWidth: "600px", margin: "0 auto" }}>
+        <h1 style={{ color: "#dc2626" }}>Configuration Error</h1>
+        <p>Missing <code>VITE_CLERK_PUBLISHABLE_KEY</code> in environment variables.</p>
+        <p>Create a <code>.env</code> file in the project root with your Clerk publishable key.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
+  );
+};
 
 export default App;
