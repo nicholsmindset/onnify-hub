@@ -4,17 +4,33 @@ import { useClient } from "@/hooks/use-clients";
 import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from "@/hooks/use-contacts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles } from "lucide-react";
-import { ClientStatus, DeliverableStatus, InvoiceStatus } from "@/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star } from "lucide-react";
+import { ClientStatus, DeliverableStatus, InvoiceStatus, Contact, ContactRole } from "@/types";
 import { EmailComposer } from "@/components/ai/EmailComposer";
+import { ActivityTimeline } from "@/components/ActivityTimeline";
 import { Progress } from "@/components/ui/progress";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
+
+const contactRoleLabels: Record<ContactRole, string> = {
+  primary: "Primary",
+  marketing: "Marketing",
+  finance: "Finance",
+  executive: "Executive",
+  technical: "Technical",
+  other: "Other",
+};
 
 const statusColor: Record<ClientStatus, string> = {
   Prospect: "bg-muted text-muted-foreground",
@@ -45,6 +61,54 @@ export default function ClientDetail() {
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId: id });
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId: id });
   const { data: tasks = [], isLoading: loadingTasks } = useTasks({ clientId: id });
+  const { data: contacts = [], isLoading: loadingContacts } = useContacts(id);
+  const createContact = useCreateContact();
+  const updateContact = useUpdateContact();
+  const deleteContact = useDeleteContact();
+
+  // Contact form state
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [deleteContactTarget, setDeleteContactTarget] = useState<Contact | null>(null);
+  const [cName, setCName] = useState("");
+  const [cEmail, setCEmail] = useState("");
+  const [cPhone, setCPhone] = useState("");
+  const [cRole, setCRole] = useState<ContactRole>("other");
+  const [cTitle, setCTitle] = useState("");
+  const [cIsPrimary, setCIsPrimary] = useState(false);
+  const [cNotes, setCNotes] = useState("");
+
+  const resetContactForm = () => {
+    setCName(""); setCEmail(""); setCPhone(""); setCRole("other");
+    setCTitle(""); setCIsPrimary(false); setCNotes("");
+  };
+
+  const loadContactForm = (c: Contact) => {
+    setCName(c.name); setCEmail(c.email || ""); setCPhone(c.phone || "");
+    setCRole(c.role); setCTitle(c.title || ""); setCIsPrimary(c.isPrimary);
+    setCNotes(c.notes || "");
+  };
+
+  const handleSaveContact = () => {
+    const payload = {
+      clientId: id!, name: cName, email: cEmail || undefined, phone: cPhone || undefined,
+      role: cRole, title: cTitle || undefined, isPrimary: cIsPrimary, notes: cNotes || undefined,
+    };
+    if (editingContact) {
+      updateContact.mutate({ id: editingContact.id, ...payload }, {
+        onSuccess: () => { setEditingContact(null); setContactDialogOpen(false); resetContactForm(); },
+      });
+    } else {
+      createContact.mutate(payload, {
+        onSuccess: () => { setContactDialogOpen(false); resetContactForm(); },
+      });
+    }
+  };
+
+  const handleDeleteContact = () => {
+    if (!deleteContactTarget) return;
+    deleteContact.mutate(deleteContactTarget.id, { onSuccess: () => setDeleteContactTarget(null) });
+  };
 
   if (loadingClient) {
     return (
@@ -192,6 +256,12 @@ export default function ClientDetail() {
           <TabsTrigger value="tasks">
             Tasks ({tasks.length})
           </TabsTrigger>
+          <TabsTrigger value="contacts">
+            Contacts ({contacts.length})
+          </TabsTrigger>
+          <TabsTrigger value="activity">
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="deliverables" className="mt-4">
@@ -304,7 +374,152 @@ export default function ClientDetail() {
             </div>
           )}
         </TabsContent>
+
+        {/* Contacts Tab */}
+        <TabsContent value="contacts" className="mt-4">
+          {loadingContacts ? (
+            <Skeleton className="h-32 w-full" />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Dialog open={contactDialogOpen} onOpenChange={(open) => { setContactDialogOpen(open); if (!open) { setEditingContact(null); resetContactForm(); } }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm"><Plus className="h-4 w-4 mr-2" /> Add Contact</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>{editingContact ? "Edit Contact" : "Add Contact"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Name</Label>
+                          <Input value={cName} onChange={(e) => setCName(e.target.value)} placeholder="Full name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Role</Label>
+                          <Select value={cRole} onValueChange={(v) => setCRole(v as ContactRole)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(contactRoleLabels).map(([k, v]) => (
+                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="email@company.com" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Phone</Label>
+                          <Input value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="+65 ..." />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Title</Label>
+                        <Input value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="e.g. Marketing Director" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Notes</Label>
+                        <Input value={cNotes} onChange={(e) => setCNotes(e.target.value)} placeholder="Optional notes" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="isPrimary" checked={cIsPrimary} onChange={(e) => setCIsPrimary(e.target.checked)} className="rounded" />
+                        <Label htmlFor="isPrimary" className="text-sm">Primary contact</Label>
+                      </div>
+                      <Button className="w-full" onClick={handleSaveContact}
+                        disabled={!cName || (editingContact ? updateContact.isPending : createContact.isPending)}>
+                        {(editingContact ? updateContact.isPending : createContact.isPending) ? "Saving..." : editingContact ? "Update" : "Add Contact"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {contacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No contacts yet. Add your first contact for this client.</p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {contacts.map((contact) => (
+                    <Card key={contact.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center shrink-0">
+                              <span className="text-primary-foreground font-bold text-xs">
+                                {contact.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">{contact.name}</p>
+                                {contact.isPrimary && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                              </div>
+                              {contact.title && <p className="text-xs text-muted-foreground">{contact.title}</p>}
+                              <Badge variant="outline" className="text-[10px] mt-1">{contactRoleLabels[contact.role]}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                              loadContactForm(contact); setEditingContact(contact); setContactDialogOpen(true);
+                            }}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteContactTarget(contact)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          {contact.email && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Mail className="h-3 w-3" /> {contact.email}
+                            </div>
+                          )}
+                          {contact.phone && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" /> {contact.phone}
+                            </div>
+                          )}
+                          {contact.notes && (
+                            <p className="text-xs text-muted-foreground mt-2 italic">{contact.notes}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="mt-4">
+          {id && <ActivityTimeline clientId={id} />}
+        </TabsContent>
       </Tabs>
+
+      {/* Delete Contact Confirmation */}
+      <AlertDialog open={!!deleteContactTarget} onOpenChange={(open) => !open && setDeleteContactTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {deleteContactTarget?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteContact} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -36,6 +36,9 @@ async function callAI({ systemPrompt, userPrompt, maxTokens = 2048 }: AIRequestO
 
   if (!res.ok) {
     const error = await res.text();
+    if (res.status === 401) {
+      throw new Error("OpenRouter API key is invalid or expired. Please update VITE_OPENROUTER_API_KEY in your .env file with a valid key from https://openrouter.ai/keys");
+    }
     throw new Error(`AI request failed (${res.status}): ${error}`);
   }
 

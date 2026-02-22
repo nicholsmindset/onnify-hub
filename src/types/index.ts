@@ -481,3 +481,149 @@ export function toPortalAccessRow(data: Partial<PortalAccess>) {
   if (data.isActive !== undefined) row.is_active = data.isActive;
   return row;
 }
+
+// ============================================
+// CONTACT TYPES
+// ============================================
+
+export type ContactRole = "primary" | "marketing" | "finance" | "executive" | "technical" | "other";
+
+export interface Contact {
+  id: string;
+  clientId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: ContactRole;
+  title?: string;
+  isPrimary: boolean;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapContact(row: Record<string, unknown>): Contact {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    name: row.name as string,
+    email: row.email as string | undefined,
+    phone: row.phone as string | undefined,
+    role: row.role as ContactRole,
+    title: row.title as string | undefined,
+    isPrimary: row.is_primary as boolean,
+    notes: row.notes as string | undefined,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toContactRow(data: Partial<Contact>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.name !== undefined) row.name = data.name;
+  if (data.email !== undefined) row.email = data.email || null;
+  if (data.phone !== undefined) row.phone = data.phone || null;
+  if (data.role !== undefined) row.role = data.role;
+  if (data.title !== undefined) row.title = data.title || null;
+  if (data.isPrimary !== undefined) row.is_primary = data.isPrimary;
+  if (data.notes !== undefined) row.notes = data.notes || null;
+  return row;
+}
+
+// ============================================
+// TEAM MEMBER TYPES
+// ============================================
+
+export type TeamRole = "owner" | "manager" | "specialist" | "freelancer";
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: TeamRole;
+  title?: string;
+  weeklyCapacityHours: number;
+  hourlyRate: number;
+  market?: Market;
+  avatarUrl?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function mapTeamMember(row: Record<string, unknown>): TeamMember {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: row.email as string,
+    role: row.role as TeamRole,
+    title: row.title as string | undefined,
+    weeklyCapacityHours: Number(row.weekly_capacity_hours || 40),
+    hourlyRate: Number(row.hourly_rate || 0),
+    market: row.market as Market | undefined,
+    avatarUrl: row.avatar_url as string | undefined,
+    isActive: row.is_active as boolean,
+    createdAt: row.created_at as string | undefined,
+    updatedAt: row.updated_at as string | undefined,
+  };
+}
+
+export function toTeamMemberRow(data: Partial<TeamMember>) {
+  const row: Record<string, unknown> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.role !== undefined) row.role = data.role;
+  if (data.title !== undefined) row.title = data.title || null;
+  if (data.weeklyCapacityHours !== undefined) row.weekly_capacity_hours = data.weeklyCapacityHours;
+  if (data.hourlyRate !== undefined) row.hourly_rate = data.hourlyRate;
+  if (data.market !== undefined) row.market = data.market || null;
+  if (data.avatarUrl !== undefined) row.avatar_url = data.avatarUrl || null;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+  return row;
+}
+
+// ============================================
+// ACTIVITY LOG TYPES
+// ============================================
+
+export type ActivityAction = "created" | "updated" | "deleted" | "status_changed" | "assigned" | "commented" | "note_added";
+export type ActivityEntity = "client" | "deliverable" | "invoice" | "task" | "content" | "contact";
+
+export interface ActivityLog {
+  id: string;
+  clientId?: string;
+  entityType: ActivityEntity;
+  entityId: string;
+  action: ActivityAction;
+  description: string;
+  performedBy: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export function mapActivityLog(row: Record<string, unknown>): ActivityLog {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string | undefined,
+    entityType: row.entity_type as ActivityEntity,
+    entityId: row.entity_id as string,
+    action: row.action as ActivityAction,
+    description: row.description as string,
+    performedBy: row.performed_by as string,
+    metadata: row.metadata as Record<string, unknown> | undefined,
+    createdAt: row.created_at as string,
+  };
+}
+
+export function toActivityLogRow(data: Partial<ActivityLog>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId || null;
+  if (data.entityType !== undefined) row.entity_type = data.entityType;
+  if (data.entityId !== undefined) row.entity_id = data.entityId;
+  if (data.action !== undefined) row.action = data.action;
+  if (data.description !== undefined) row.description = data.description;
+  if (data.performedBy !== undefined) row.performed_by = data.performedBy;
+  if (data.metadata !== undefined) row.metadata = data.metadata || null;
+  return row;
+}
