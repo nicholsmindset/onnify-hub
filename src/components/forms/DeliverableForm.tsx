@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { deliverableSchema, DeliverableFormValues } from "@/lib/validations";
 import { Deliverable } from "@/types";
 import { useClients } from "@/hooks/use-clients";
+import { useTeamMembers } from "@/hooks/use-team";
 import {
   Form,
   FormControl,
@@ -30,6 +31,7 @@ interface DeliverableFormProps {
 
 export function DeliverableForm({ defaultValues, onSubmit, isLoading }: DeliverableFormProps) {
   const { data: clients = [] } = useClients();
+  const { data: teamMembers = [] } = useTeamMembers();
 
   const form = useForm<DeliverableFormValues>({
     resolver: zodResolver(deliverableSchema),
@@ -164,9 +166,12 @@ export function DeliverableForm({ defaultValues, onSubmit, isLoading }: Delivera
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Robert">Robert</SelectItem>
-                    <SelectItem value="Lina">Lina</SelectItem>
-                    <SelectItem value="Freelancer">Freelancer</SelectItem>
+                    {teamMembers.filter((m) => m.isActive).map((m) => (
+                      <SelectItem key={m.id} value={m.name}>{m.name}{m.title ? ` (${m.title})` : ""}</SelectItem>
+                    ))}
+                    {teamMembers.filter((m) => m.isActive).length === 0 && (
+                      <SelectItem value="Unassigned">Unassigned</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />

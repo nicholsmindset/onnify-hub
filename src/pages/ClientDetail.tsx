@@ -5,6 +5,7 @@ import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from "@/hooks/use-contacts";
+import { usePortalMessages, useSendPortalMessage } from "@/hooks/use-portal-messages";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send } from "lucide-react";
 import { ClientStatus, DeliverableStatus, InvoiceStatus, Contact, ContactRole } from "@/types";
 import { EmailComposer } from "@/components/ai/EmailComposer";
 import { ActivityTimeline } from "@/components/ActivityTimeline";
@@ -62,9 +64,12 @@ export default function ClientDetail() {
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId: id });
   const { data: tasks = [], isLoading: loadingTasks } = useTasks({ clientId: id });
   const { data: contacts = [], isLoading: loadingContacts } = useContacts(id);
+  const { data: portalMessages = [] } = usePortalMessages(id);
+  const sendPortalMessage = useSendPortalMessage();
   const createContact = useCreateContact();
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
+  const [replyText, setReplyText] = useState("");
 
   // Contact form state
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -261,6 +266,10 @@ export default function ClientDetail() {
           </TabsTrigger>
           <TabsTrigger value="activity">
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-1">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Messages {portalMessages.length > 0 && `(${portalMessages.length})`}
           </TabsTrigger>
         </TabsList>
 
@@ -500,6 +509,83 @@ export default function ClientDetail() {
         {/* Activity Tab */}
         <TabsContent value="activity" className="mt-4">
           {id && <ActivityTimeline clientId={id} />}
+        </TabsContent>
+
+        {/* Messages Tab - Portal Communication */}
+        <TabsContent value="messages" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Client Portal Messages</CardTitle>
+              <p className="text-xs text-muted-foreground">Messages from the client portal. Reply below to communicate with the client.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-h-96 overflow-y-auto space-y-3">
+                {portalMessages.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">No portal messages yet</p>
+                ) : (
+                  portalMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.senderType === "agency" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                          msg.senderType === "agency"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-medium opacity-80">{msg.senderName}</span>
+                          <Badge variant="outline" className="text-[10px] h-4 opacity-70">
+                            {msg.senderType === "client" ? "Client" : "Team"}
+                          </Badge>
+                          <span className="text-[10px] opacity-60 ml-auto">
+                            {new Date(msg.createdAt).toLocaleDateString()}{" "}
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-sm">{msg.message}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex gap-2 border-t pt-3">
+                <Textarea
+                  placeholder="Reply to client..."
+                  rows={2}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="flex-1 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!replyText.trim() || !id) return;
+                      sendPortalMessage.mutate(
+                        { clientId: id, senderType: "agency", senderName: "ONNIFY WORKS Team", message: replyText },
+                        { onSuccess: () => setReplyText("") }
+                      );
+                    }
+                  }}
+                />
+                <Button
+                  className="self-end"
+                  onClick={() => {
+                    if (!replyText.trim() || !id) return;
+                    sendPortalMessage.mutate(
+                      { clientId: id, senderType: "agency", senderName: "ONNIFY WORKS Team", message: replyText },
+                      { onSuccess: () => setReplyText("") }
+                    );
+                  }}
+                  disabled={!replyText.trim() || sendPortalMessage.isPending}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

@@ -616,6 +616,44 @@ export function mapActivityLog(row: Record<string, unknown>): ActivityLog {
   };
 }
 
+// ============================================
+// PORTAL MESSAGE TYPES
+// ============================================
+
+export type PortalMessageSender = "client" | "agency";
+
+export interface PortalMessage {
+  id: string;
+  clientId: string;
+  deliverableId?: string;
+  senderType: PortalMessageSender;
+  senderName: string;
+  message: string;
+  createdAt: string;
+}
+
+export function mapPortalMessage(row: Record<string, unknown>): PortalMessage {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    deliverableId: row.deliverable_id as string | undefined,
+    senderType: row.sender_type as PortalMessageSender,
+    senderName: row.sender_name as string,
+    message: row.message as string,
+    createdAt: row.created_at as string,
+  };
+}
+
+export function toPortalMessageRow(data: Partial<PortalMessage>) {
+  const row: Record<string, unknown> = {};
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.deliverableId !== undefined) row.deliverable_id = data.deliverableId || null;
+  if (data.senderType !== undefined) row.sender_type = data.senderType;
+  if (data.senderName !== undefined) row.sender_name = data.senderName;
+  if (data.message !== undefined) row.message = data.message;
+  return row;
+}
+
 export function toActivityLogRow(data: Partial<ActivityLog>) {
   const row: Record<string, unknown> = {};
   if (data.clientId !== undefined) row.client_id = data.clientId || null;
