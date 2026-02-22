@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TaskForm } from "@/components/forms/TaskForm";
 
-// Mock useClients with non-empty values to avoid Radix SelectItem value="" error
 vi.mock("@/hooks/use-clients", () => ({
   useClients: () => ({
     data: [
@@ -13,15 +12,6 @@ vi.mock("@/hooks/use-clients", () => ({
     isLoading: false,
   }),
 }));
-
-// Suppress known Radix Select.Item empty string error from source code
-beforeEach(() => {
-  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
-    const msg = String(args[0] ?? "");
-    if (msg.includes("Select.Item") || msg.includes("empty string")) return;
-    console.warn(...args);
-  });
-});
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -35,13 +25,8 @@ function createWrapper() {
 describe("TaskForm", () => {
   it("should render the task name input", () => {
     const onSubmit = vi.fn();
-    // Use try-catch to handle Radix error for SelectItem value=""
-    try {
-      render(createElement(TaskForm, { onSubmit }), { wrapper: createWrapper() });
-      expect(screen.getByLabelText(/task name/i)).toBeInTheDocument();
-    } catch {
-      // Known Radix SelectItem value="" error in source
-    }
+    render(createElement(TaskForm, { onSubmit }), { wrapper: createWrapper() });
+    expect(screen.getByLabelText(/task name/i)).toBeInTheDocument();
   });
 
   it("should render 'Update Task' button when defaultValues provided", () => {
@@ -54,17 +39,13 @@ describe("TaskForm", () => {
       category: "Admin" as const,
       status: "To Do" as const,
       dueDate: "2026-02-21",
-      clientId: "c1", // Provide a valid clientId to avoid the empty string issue
+      clientId: "c1",
     };
 
-    try {
-      render(createElement(TaskForm, { defaultValues, onSubmit }), {
-        wrapper: createWrapper(),
-      });
-      expect(screen.getByRole("button", { name: /update task/i })).toBeInTheDocument();
-    } catch {
-      // Known Radix SelectItem value="" error
-    }
+    render(createElement(TaskForm, { defaultValues, onSubmit }), {
+      wrapper: createWrapper(),
+    });
+    expect(screen.getByRole("button", { name: /update task/i })).toBeInTheDocument();
   });
 
   it("should populate name field with defaultValues", () => {
@@ -81,14 +62,10 @@ describe("TaskForm", () => {
       clientId: "c1",
     };
 
-    try {
-      render(createElement(TaskForm, { defaultValues, onSubmit }), {
-        wrapper: createWrapper(),
-      });
-      expect(screen.getByDisplayValue("Write blog post")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("Draft #3")).toBeInTheDocument();
-    } catch {
-      // Known Radix SelectItem value="" error
-    }
+    render(createElement(TaskForm, { defaultValues, onSubmit }), {
+      wrapper: createWrapper(),
+    });
+    expect(screen.getByDisplayValue("Write blog post")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Draft #3")).toBeInTheDocument();
   });
 });

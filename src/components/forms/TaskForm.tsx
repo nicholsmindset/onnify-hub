@@ -68,14 +68,14 @@ export function TaskForm({ defaultValues, onSubmit, isLoading }: TaskFormProps) 
           render={({ field }) => (
             <FormItem>
               <FormLabel>Client (optional)</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={(val) => field.onChange(val === "none" ? "" : val)} defaultValue={field.value || "none"}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="No client" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">No client</SelectItem>
+                  <SelectItem value="none">No client</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.companyName}
