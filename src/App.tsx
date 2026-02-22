@@ -26,7 +26,9 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const CLERK_PUBLISHABLE_KEY =
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const AppRoutes = () => (
   <BrowserRouter>
