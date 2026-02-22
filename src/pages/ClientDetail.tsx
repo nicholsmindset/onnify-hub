@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles } from "lucide-react";
 import { ClientStatus, DeliverableStatus, InvoiceStatus } from "@/types";
 import { EmailComposer } from "@/components/ai/EmailComposer";
+import { Progress } from "@/components/ui/progress";
+import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
 
 const statusColor: Record<ClientStatus, string> = {
   Prospect: "bg-muted text-muted-foreground",
@@ -141,6 +143,42 @@ export default function ClientDetail() {
       </Card>
 
       <EmailComposer open={emailComposerOpen} onOpenChange={setEmailComposerOpen} client={client} />
+
+      {/* Health Score Card */}
+      {client.status === "Active" && (() => {
+        const health = calculateHealthScore(client, deliverables, invoices, tasks);
+        return (
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Client Health Score</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold border ${getGradeColor(health.grade)}`}>
+                    {health.grade}
+                  </span>
+                  <span className={`text-lg font-mono font-bold ${getTrendColor(health.trend)}`}>
+                    {health.score}/100 {getTrendIcon(health.trend)}
+                  </span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {health.factors.map((f) => (
+                  <div key={f.name} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{f.name}</span>
+                      <span className="text-xs font-mono font-medium">{f.score}%</span>
+                    </div>
+                    <Progress value={f.score} className="h-1.5" />
+                    <p className="text-[10px] text-muted-foreground">{f.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Tabs: Deliverables, Invoices, Tasks */}
       <Tabs defaultValue="deliverables">

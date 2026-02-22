@@ -9,6 +9,9 @@ import { useTasks } from "@/hooks/use-tasks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { TrendingUp, DollarSign, CheckCircle, Clock, Users } from "lucide-react";
 import { useState } from "react";
+import { ReportInsights } from "@/components/ai/ReportInsights";
+import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
+import { Progress } from "@/components/ui/progress";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -61,30 +64,11 @@ export default function Reports() {
 
   const delivChartData = Object.entries(delivStatusCounts).map(([name, value]) => ({ name, value }));
 
-  // Client health (based on active deliverables + invoice status)
+  // Client health scores (enhanced)
   const clientHealth = filteredClients
     .filter((c) => c.status === "Active")
-    .map((c) => {
-      const clientDeliverables = deliverables.filter((d) => d.clientId === c.id);
-      const overdueDeliverables = clientDeliverables.filter(
-        (d) => new Date(d.dueDate) < new Date() && d.status !== "Delivered" && d.status !== "Approved"
-      );
-      const clientInvoices = invoices.filter((i) => i.clientId === c.id);
-      const overdueInvoices = clientInvoices.filter((i) => i.status === "Overdue");
-
-      let health: "Healthy" | "At Risk" | "Critical" = "Healthy";
-      if (overdueDeliverables.length > 0 || overdueInvoices.length > 0) health = "At Risk";
-      if (overdueDeliverables.length > 2 || overdueInvoices.length > 1) health = "Critical";
-
-      return {
-        name: c.companyName,
-        market: c.market,
-        monthlyValue: c.monthlyValue,
-        activeDeliverables: clientDeliverables.filter((d) => d.status !== "Approved" && d.status !== "Delivered").length,
-        overdueCount: overdueDeliverables.length,
-        health,
-      };
-    });
+    .map((c) => calculateHealthScore(c, deliverables, invoices, tasks))
+    .sort((a, b) => a.score - b.score);
 
   const healthColors: Record<string, string> = {
     Healthy: "bg-green-500/10 text-green-600",
@@ -137,6 +121,14 @@ export default function Reports() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* AI Insights */}
+      <ReportInsights
+        clients={filteredClients}
+        deliverables={filteredDeliverables}
+        invoices={filteredInvoices}
+        tasks={filteredTasks}
+      />
 
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -259,17 +251,30 @@ export default function Reports() {
           {clientHealth.length > 0 ? (
             <div className="space-y-2">
               {clientHealth.map((ch) => (
-                <div key={ch.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div key={ch.clientId} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${healthColors[ch.health]}`}>{ch.health}</span>
+                    <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold border ${getGradeColor(ch.grade)}`}>
+                      {ch.grade}
+                    </span>
                     <div>
-                      <p className="text-sm font-medium">{ch.name}</p>
-                      <p className="text-xs text-muted-foreground">{ch.activeDeliverables} active deliverables · {ch.overdueCount} overdue</p>
+                      <p className="text-sm font-medium">{ch.companyName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {ch.factors.map((f) => (
+                          <span key={f.name} className="text-[10px] text-muted-foreground">
+                            {f.name}: {f.score}%
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className={`text-sm font-mono font-bold ${getTrendColor(ch.trend)}`}>
+                        {ch.score} {getTrendIcon(ch.trend)}
+                      </span>
+                      <p className="text-xs text-muted-foreground">${ch.monthlyValue}/mo</p>
+                    </div>
                     <Badge variant="outline">{ch.market}</Badge>
-                    <p className="text-xs text-muted-foreground mt-1">${ch.monthlyValue}/mo</p>
                   </div>
                 </div>
               ))}

@@ -14,6 +14,10 @@ import { ClientForm } from "@/components/forms/ClientForm";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Client, ClientStatus } from "@/types";
 import { ClientFormValues } from "@/lib/validations";
+import { useDeliverables } from "@/hooks/use-deliverables";
+import { useInvoices } from "@/hooks/use-invoices";
+import { useTasks } from "@/hooks/use-tasks";
+import { calculateHealthScore, getGradeColor } from "@/lib/health-score";
 
 const statusColor: Record<ClientStatus, string> = {
   Prospect: "bg-muted text-muted-foreground",
@@ -32,9 +36,19 @@ export default function Clients() {
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
 
   const { data: clients = [], isLoading } = useClients({ market: marketFilter, status: statusFilter, search });
+  const { data: allDeliverables = [] } = useDeliverables();
+  const { data: allInvoices = [] } = useInvoices();
+  const { data: allTasks = [] } = useTasks();
   const createMutation = useCreateClient();
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
+
+  const healthScores = clients.reduce((acc, c) => {
+    if (c.status === "Active") {
+      acc[c.id] = calculateHealthScore(c, allDeliverables, allInvoices, allTasks);
+    }
+    return acc;
+  }, {} as Record<string, ReturnType<typeof calculateHealthScore>>);
 
   const handleCreate = (data: ClientFormValues) => {
     createMutation.mutate(
@@ -136,6 +150,7 @@ export default function Clients() {
                 <TableHead>Status</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead className="text-right">Monthly Value</TableHead>
+                <TableHead className="text-center">Health</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -157,6 +172,15 @@ export default function Clients() {
                   </TableCell>
                   <TableCell className="text-sm">{client.primaryContact}</TableCell>
                   <TableCell className="text-right font-mono">${client.monthlyValue}</TableCell>
+                  <TableCell className="text-center">
+                    {healthScores[client.id] ? (
+                      <span className={`inline-flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold border ${getGradeColor(healthScores[client.id].grade)}`}>
+                        {healthScores[client.id].grade}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditClient(client)}>
@@ -171,7 +195,7 @@ export default function Clients() {
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No clients found</TableCell>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">No clients found</TableCell>
                 </TableRow>
               )}
             </TableBody>
