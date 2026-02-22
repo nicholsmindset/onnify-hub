@@ -173,12 +173,6 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
                 onClick={() => setAiPanelOpen(true)}
               >
                 <Sparkles className="h-3 w-3" /> AI Assist
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-primary"
-                onClick={() => setAiPanelOpen(true)}
-              >
-                <Sparkles className="h-3 w-3 mr-1" /> AI Assist
               </Button>
             </div>
             <FormControl><Textarea placeholder="Write content here..." rows={4} {...field} /></FormControl>
@@ -197,15 +191,6 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
           clientMarket={form.watch("market")}
           currentContent={form.watch("contentBody")}
           onInsert={(content) => form.setValue("contentBody", content)}
-          onInsert={(content) => form.setValue("contentBody", content)}
-          contentType={form.watch("contentType")}
-          platform={form.watch("platform") || undefined}
-          existingContent={form.watch("contentBody") || undefined}
-          clientContext={(() => {
-            const cId = form.watch("clientId");
-            const client = cId ? clients.find((c) => c.id === cId) : undefined;
-            return client ? { companyName: client.companyName, industry: client.industry, market: client.market } : undefined;
-          })()}
         />
 
         <FormField control={form.control} name="notes" render={({ field }) => (
