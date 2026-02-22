@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { contentSchema, ContentFormValues } from "@/lib/validations";
@@ -8,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { ContentAIPanel } from "@/components/ai/ContentAIPanel";
 
 interface ContentFormProps {
   defaultValues?: ContentItem;
@@ -17,6 +20,7 @@ interface ContentFormProps {
 
 export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormProps) {
   const { data: clients = [] } = useClients();
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const form = useForm<ContentFormValues>({
     resolver: zodResolver(contentSchema),
@@ -154,11 +158,36 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
 
         <FormField control={form.control} name="contentBody" render={({ field }) => (
           <FormItem>
-            <FormLabel>Content Body</FormLabel>
+            <div className="flex items-center justify-between">
+              <FormLabel>Content Body</FormLabel>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-primary"
+                onClick={() => setAiPanelOpen(true)}
+              >
+                <Sparkles className="h-3 w-3 mr-1" /> AI Assist
+              </Button>
+            </div>
             <FormControl><Textarea placeholder="Write content here..." rows={4} {...field} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
+
+        <ContentAIPanel
+          open={aiPanelOpen}
+          onOpenChange={setAiPanelOpen}
+          onInsert={(content) => form.setValue("contentBody", content)}
+          contentType={form.watch("contentType")}
+          platform={form.watch("platform") || undefined}
+          existingContent={form.watch("contentBody") || undefined}
+          clientContext={(() => {
+            const cId = form.watch("clientId");
+            const client = cId ? clients.find((c) => c.id === cId) : undefined;
+            return client ? { companyName: client.companyName, industry: client.industry, market: client.market } : undefined;
+          })()}
+        />
 
         <FormField control={form.control} name="notes" render={({ field }) => (
           <FormItem>
