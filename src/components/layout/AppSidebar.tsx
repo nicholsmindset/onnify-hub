@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, FileCheck, Receipt, ListTodo,
+  LayoutDashboard, Users, UsersRound, FileCheck, Receipt, ListTodo,
   Newspaper, Link2, Bell, BarChart3, Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -25,6 +25,7 @@ const mainNavItems = [
   { title: "Deliverables", url: "/deliverables", icon: FileCheck },
   { title: "Invoices", url: "/invoices", icon: Receipt },
   { title: "Tasks", url: "/tasks", icon: ListTodo },
+  { title: "Team", url: "/team", icon: UsersRound },
 ];
 
 const moduleNavItems = [

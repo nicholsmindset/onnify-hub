@@ -17,6 +17,7 @@ import ContentPipeline from "./pages/ContentPipeline";
 import GhlSync from "./pages/GhlSync";
 import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
+import Team from "./pages/Team";
 import PortalAdmin from "./pages/PortalAdmin";
 import Portal from "./pages/Portal";
 import Login from "./pages/Login";
@@ -52,6 +53,7 @@ const App = () => (
                   <Route path="/ghl-sync" element={<GhlSync />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/reports" element={<Reports />} />
+                  <Route path="/team" element={<Team />} />
                   <Route path="/portal-admin" element={<PortalAdmin />} />
                 </Route>
               </Route>

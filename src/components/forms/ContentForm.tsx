@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { contentSchema, ContentFormValues } from "@/lib/validations";
 import { ContentItem } from "@/types";
 import { useClients } from "@/hooks/use-clients";
+import { useTeamMembers } from "@/hooks/use-team";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,7 @@ interface ContentFormProps {
 
 export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormProps) {
   const { data: clients = [] } = useClients();
+  const { data: teamMembers = [] } = useTeamMembers();
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const form = useForm<ContentFormValues>({
@@ -121,9 +123,12 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl><SelectTrigger><SelectValue placeholder="Select assignee" /></SelectTrigger></FormControl>
                 <SelectContent>
-                  <SelectItem value="Robert">Robert</SelectItem>
-                  <SelectItem value="Lina">Lina</SelectItem>
-                  <SelectItem value="Freelancer">Freelancer</SelectItem>
+                  {teamMembers.filter((m) => m.isActive).map((m) => (
+                    <SelectItem key={m.id} value={m.name}>{m.name}{m.title ? ` (${m.title})` : ""}</SelectItem>
+                  ))}
+                  {teamMembers.filter((m) => m.isActive).length === 0 && (
+                    <SelectItem value="Unassigned">Unassigned</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -162,6 +167,12 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
               <FormLabel>Content Body</FormLabel>
               <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setAiPanelOpen(true)}
+              >
+                <Sparkles className="h-3 w-3" /> AI Assist
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs text-primary"
@@ -178,6 +189,14 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
         <ContentAIPanel
           open={aiPanelOpen}
           onOpenChange={setAiPanelOpen}
+          contentType={form.watch("contentType")}
+          title={form.watch("title")}
+          platform={form.watch("platform")}
+          clientName={clients.find((c) => c.id === form.watch("clientId"))?.companyName}
+          clientIndustry={clients.find((c) => c.id === form.watch("clientId"))?.industry}
+          clientMarket={form.watch("market")}
+          currentContent={form.watch("contentBody")}
+          onInsert={(content) => form.setValue("contentBody", content)}
           onInsert={(content) => form.setValue("contentBody", content)}
           contentType={form.watch("contentType")}
           platform={form.watch("platform") || undefined}
