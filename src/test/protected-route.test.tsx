@@ -16,7 +16,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 function renderWithRouter(
-  requiredRole?: Parameters<typeof ProtectedRoute>[0]["requiredRole"],
+  _requiredRole?: unknown,
   initialRoute = "/protected"
 ) {
   return render(
@@ -28,7 +28,7 @@ function renderWithRouter(
         null,
         createElement(
           Route,
-          { element: createElement(ProtectedRoute, { requiredRole }) },
+          { element: createElement(ProtectedRoute) },
           createElement(Route, {
             path: "/protected",
             element: createElement("div", null, "Protected Content"),
