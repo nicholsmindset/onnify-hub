@@ -56,10 +56,16 @@ export function useClient(id: string | undefined) {
 export function useCreateClient() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (values: Partial<Client> & { clientId?: string }) => {
+    mutationFn: async (values: Partial<Client>) => {
       const row = toClientRow(values);
-      if (values.clientId) {
-        (row as Record<string, unknown>).client_id = values.clientId;
+      // Auto-generate client_id using the DB function
+      if (values.market) {
+        const { data: idData } = await supabase.rpc("generate_client_id", {
+          p_market: values.market,
+        });
+        if (idData) {
+          (row as Record<string, unknown>).client_id = idData;
+        }
       }
       const { data, error } = await supabase
         .from("clients")
