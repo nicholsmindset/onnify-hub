@@ -14,13 +14,351 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          client_id: string
+          company_name: string
+          contract_end: string | null
+          contract_start: string | null
+          created_at: string | null
+          ghl_url: string | null
+          id: string
+          industry: string
+          market: string
+          monthly_value: number
+          plan_tier: string
+          primary_contact: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          company_name: string
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string | null
+          ghl_url?: string | null
+          id?: string
+          industry: string
+          market: string
+          monthly_value?: number
+          plan_tier: string
+          primary_contact: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          company_name?: string
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string | null
+          ghl_url?: string | null
+          id?: string
+          industry?: string
+          market?: string
+          monthly_value?: number
+          plan_tier?: string
+          primary_contact?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      deliverables: {
+        Row: {
+          assigned_to: string
+          client_approved: boolean | null
+          client_id: string | null
+          created_at: string | null
+          deliverable_id: string
+          delivery_date: string | null
+          description: string | null
+          due_date: string
+          file_link: string | null
+          id: string
+          market: string
+          name: string
+          priority: string
+          service_type: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to: string
+          client_approved?: boolean | null
+          client_id?: string | null
+          created_at?: string | null
+          deliverable_id: string
+          delivery_date?: string | null
+          description?: string | null
+          due_date: string
+          file_link?: string | null
+          id?: string
+          market: string
+          name: string
+          priority?: string
+          service_type: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string
+          client_approved?: boolean | null
+          client_id?: string | null
+          created_at?: string | null
+          deliverable_id?: string
+          delivery_date?: string | null
+          description?: string | null
+          due_date?: string
+          file_link?: string | null
+          id?: string
+          market?: string
+          name?: string
+          priority?: string
+          service_type?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          client_id: string | null
+          created_at: string | null
+          currency: string
+          id: string
+          invoice_file_link: string | null
+          invoice_id: string
+          market: string
+          month: string
+          payment_date: string | null
+          services_billed: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          client_id?: string | null
+          created_at?: string | null
+          currency: string
+          id?: string
+          invoice_file_link?: string | null
+          invoice_id: string
+          market: string
+          month: string
+          payment_date?: string | null
+          services_billed: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          created_at?: string | null
+          currency?: string
+          id?: string
+          invoice_file_link?: string | null
+          invoice_id?: string
+          market?: string
+          month?: string
+          payment_date?: string | null
+          services_billed?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string
+          category: string
+          client_id: string | null
+          created_at: string | null
+          deliverable_id: string | null
+          due_date: string
+          id: string
+          name: string
+          notes: string | null
+          status: string
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to: string
+          category: string
+          client_id?: string | null
+          created_at?: string | null
+          deliverable_id?: string | null
+          due_date: string
+          id?: string
+          name: string
+          notes?: string | null
+          status?: string
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string
+          category?: string
+          client_id?: string | null
+          created_at?: string | null
+          deliverable_id?: string | null
+          due_date?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: string
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables_with_client"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      deliverables_with_client: {
+        Row: {
+          assigned_to: string | null
+          client_approved: boolean | null
+          client_id: string | null
+          client_name: string | null
+          created_at: string | null
+          deliverable_id: string | null
+          delivery_date: string | null
+          description: string | null
+          due_date: string | null
+          file_link: string | null
+          id: string | null
+          market: string | null
+          name: string | null
+          priority: string | null
+          service_type: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices_with_client: {
+        Row: {
+          amount: number | null
+          client_id: string | null
+          client_name: string | null
+          created_at: string | null
+          currency: string | null
+          id: string | null
+          invoice_file_link: string | null
+          invoice_id: string | null
+          market: string | null
+          month: string | null
+          payment_date: string | null
+          services_billed: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks_with_relations: {
+        Row: {
+          assigned_to: string | null
+          category: string | null
+          client_id: string | null
+          client_name: string | null
+          created_at: string | null
+          deliverable_id: string | null
+          deliverable_name: string | null
+          due_date: string | null
+          id: string | null
+          name: string | null
+          notes: string | null
+          status: string | null
+          task_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables_with_client"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      generate_client_id: { Args: { p_market: string }; Returns: string }
+      generate_deliverable_id: { Args: never; Returns: string }
+      generate_invoice_id: { Args: never; Returns: string }
+      generate_task_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
