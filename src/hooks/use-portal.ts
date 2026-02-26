@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { PortalAccess, mapPortalAccess, toPortalAccessRow } from "@/types";
 import { toast } from "sonner";
 
@@ -43,13 +43,16 @@ export function useCreatePortalAccess() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (values: Partial<PortalAccess>) => {
-      const row = toPortalAccessRow(values);
-      // Generate a random token
-      (row as Record<string, unknown>).access_token =
-        crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+      const accessToken = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
       const { data, error } = await supabase
         .from("portal_access")
-        .insert(row)
+        .insert({
+          client_id: values.clientId,
+          contact_email: values.contactEmail!,
+          contact_name: values.contactName!,
+          is_active: values.isActive ?? true,
+          access_token: accessToken,
+        })
         .select()
         .single();
       if (error) throw error;
