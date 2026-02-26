@@ -186,6 +186,50 @@ export type Database = {
           },
         ]
       }
+      portal_access: {
+        Row: {
+          access_token: string
+          client_id: string | null
+          contact_email: string
+          contact_name: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          client_id?: string | null
+          contact_email: string
+          contact_name: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          client_id?: string | null
+          contact_email?: string
+          contact_name?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_access_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string
