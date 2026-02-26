@@ -149,7 +149,7 @@ describe("AuthProvider and useAuth", () => {
     mockSession = {
       user: {
         ...mockUser,
-        user_metadata: { role: "member" },
+        user_metadata: { full_name: "", role: "member", avatar_url: "" },
       },
     };
 
@@ -166,7 +166,7 @@ describe("AuthProvider and useAuth", () => {
     mockSession = {
       user: {
         ...mockUser,
-        user_metadata: { full_name: "Test User" },
+        user_metadata: { full_name: "Test User", role: "", avatar_url: "" },
       },
     };
 

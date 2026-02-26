@@ -583,7 +583,7 @@ describe("toContentItemRow", () => {
   it("should convert empty optional fields to null", () => {
     const row = toContentItemRow({
       clientId: "",
-      platform: "",
+      platform: undefined,
       publishDate: "",
       contentBody: "",
       fileLink: "",
@@ -592,7 +592,6 @@ describe("toContentItemRow", () => {
 
     expect(row).toEqual({
       client_id: null,
-      platform: null,
       publish_date: null,
       content_body: null,
       file_link: null,

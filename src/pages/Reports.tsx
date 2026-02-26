@@ -31,7 +31,11 @@ export default function Reports() {
   const filteredClients = filterByMarket(clients);
   const filteredDeliverables = filterByMarket(deliverables);
   const filteredInvoices = filterByMarket(invoices);
-  const filteredTasks = filterByMarket(tasks);
+  const filteredTasks = marketFilter === "all" ? tasks : tasks.filter((t) => {
+    if (!t.clientId) return false;
+    const client = clients.find((c) => c.id === t.clientId);
+    return client?.market === marketFilter;
+  });
 
   // Revenue by month
   const revenueByMonth = filteredInvoices
@@ -127,7 +131,7 @@ export default function Reports() {
         clients={filteredClients}
         deliverables={filteredDeliverables}
         invoices={filteredInvoices}
-        tasks={filteredTasks}
+        tasks={filteredTasks as any}
       />
 
       {/* Summary Stats */}
