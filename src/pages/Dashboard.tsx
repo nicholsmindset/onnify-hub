@@ -16,15 +16,9 @@ import {
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
-import { buildActivityFeed, timeAgo } from "@/lib/activity";
 import { SmartSuggestions } from "@/components/ai/SmartSuggestions";
+import { ActivityFeed } from "@/components/ActivityFeed";
 
-const activityIcons = {
-  deliverable: FileCheck,
-  invoice: Receipt,
-  task: ListTodo,
-  content: FileText,
-};
 
 export default function Dashboard() {
   const { data: clients = [], isLoading: loadingClients } = useClients();
@@ -106,9 +100,6 @@ export default function Dashboard() {
       return end >= now && end <= thirtyDaysFromNow;
     });
 
-    // Activity feed
-    const activityFeed = buildActivityFeed(deliverables, invoices, tasks, content, 8);
-
     return {
       activeClients, sgClients, idClients, usClients,
       dueThisWeek, overdue,
@@ -119,7 +110,6 @@ export default function Dashboard() {
       delivCompletionRate,
       healthScores,
       expiringContracts,
-      activityFeed,
     };
   }, [isLoading, clients, deliverables, invoices, tasks, content]);
 
@@ -400,40 +390,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Activity Feed */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Zap className="h-4 w-4" /> Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats.activityFeed.length > 0 ? (
-              <div className="space-y-1">
-                {stats.activityFeed.map((activity) => {
-                  const Icon = activityIcons[activity.type];
-                  return (
-                    <div key={activity.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
-                      <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">
-                          <span className="font-medium">{activity.action}</span>
-                          {" "}{activity.title}
-                        </p>
-                        {activity.subtitle && (
-                          <p className="text-xs text-muted-foreground">{activity.subtitle}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(activity.timestamp)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Live Activity Feed */}
+        <ActivityFeed />
       </div>
 
       {/* Quick Actions */}

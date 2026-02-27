@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTeamMembers, useCreateTeamMember, useUpdateTeamMember, useDeleteTeamMember } from "@/hooks/use-team";
 import { useTasks } from "@/hooks/use-tasks";
 import { useDeliverables } from "@/hooks/use-deliverables";
@@ -33,6 +33,21 @@ export default function Team() {
   const { data: members = [], isLoading } = useTeamMembers();
   const { data: tasks = [] } = useTasks();
   const { data: deliverables = [] } = useDeliverables();
+
+  // Pre-compute per-member stats once when data changes — not on every render
+  const memberStats = useMemo(() => {
+    const stats: Record<string, { activeTasks: number; activeDeliverables: number; completionRate: number }> = {};
+    for (const member of members) {
+      const memberTasks = tasks.filter((t) => t.assignedTo === member.name);
+      const done  = memberTasks.filter((t) => t.status === "Done").length;
+      stats[member.id] = {
+        activeTasks:        memberTasks.filter((t) => t.status !== "Done").length,
+        activeDeliverables: deliverables.filter((d) => d.assignedTo === member.name && d.status !== "Delivered" && d.status !== "Approved").length,
+        completionRate:     memberTasks.length > 0 ? Math.round((done / memberTasks.length) * 100) : 0,
+      };
+    }
+    return stats;
+  }, [members, tasks, deliverables]);
   const createMutation = useCreateTeamMember();
   const updateMutation = useUpdateTeamMember();
   const deleteMutation = useDeleteTeamMember();
@@ -181,11 +196,7 @@ export default function Team() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {members.map((member) => {
-          const memberTasks = tasks.filter((t) => t.assignedTo === member.name && t.status !== "Done");
-          const memberDeliverables = deliverables.filter((d) => d.assignedTo === member.name && d.status !== "Delivered" && d.status !== "Approved");
-          const completedTasks = tasks.filter((t) => t.assignedTo === member.name && t.status === "Done").length;
-          const totalTasks = tasks.filter((t) => t.assignedTo === member.name).length;
-          const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+          const { activeTasks: memberTaskCount, activeDeliverables: memberDelivCount, completionRate } = memberStats[member.id] ?? { activeTasks: 0, activeDeliverables: 0, completionRate: 0 };
 
           return (
             <Card key={member.id}>
@@ -226,14 +237,14 @@ export default function Team() {
                     <div className="flex items-center justify-center gap-1 text-muted-foreground">
                       <ListTodo className="h-3 w-3" />
                     </div>
-                    <p className="text-lg font-bold">{memberTasks.length}</p>
+                    <p className="text-lg font-bold">{memberTaskCount}</p>
                     <p className="text-[10px] text-muted-foreground">Open Tasks</p>
                   </div>
                   <div>
                     <div className="flex items-center justify-center gap-1 text-muted-foreground">
                       <FileCheck className="h-3 w-3" />
                     </div>
-                    <p className="text-lg font-bold">{memberDeliverables.length}</p>
+                    <p className="text-lg font-bold">{memberDelivCount}</p>
                     <p className="text-[10px] text-muted-foreground">Deliverables</p>
                   </div>
                   <div>

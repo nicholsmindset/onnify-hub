@@ -51,9 +51,17 @@ export function useCreateInvoice() {
       if (error) throw error;
       return mapInvoice(data as Record<string, unknown>);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Invoice created successfully");
+      supabase.from("activity_logs").insert({
+        event_type: "invoice",
+        title: `Invoice ${data.invoiceCode || ""} created for ${data.clientName || "client"}`,
+        client_id: data.clientId || null,
+        client_name: data.clientName || null,
+        actor: "agency",
+        link_path: "/invoices",
+      }).then(() => {}).catch(() => {});
     },
     onError: (error) => {
       toast.error(`Failed to create invoice: ${error.message}`);
@@ -75,9 +83,19 @@ export function useUpdateInvoice() {
       if (error) throw error;
       return mapInvoice(data as Record<string, unknown>);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Invoice updated");
+      if (variables.status) {
+        supabase.from("activity_logs").insert({
+          event_type: "invoice",
+          title: `Invoice ${data.invoiceCode || ""} marked ${data.status}`,
+          client_id: data.clientId || null,
+          client_name: data.clientName || null,
+          actor: "agency",
+          link_path: "/invoices",
+        }).then(() => {}).catch(() => {});
+      }
     },
     onError: (error) => {
       toast.error(`Failed to update invoice: ${error.message}`);

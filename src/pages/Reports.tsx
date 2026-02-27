@@ -8,7 +8,7 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { TrendingUp, DollarSign, CheckCircle, Clock, Users } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ReportInsights } from "@/components/ai/ReportInsights";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
 import { Progress } from "@/components/ui/progress";
@@ -25,54 +25,48 @@ export default function Reports() {
 
   const isLoading = l1 || l2 || l3 || l4;
 
-  const filterByMarket = <T extends { market?: string }>(items: T[]) =>
-    marketFilter === "all" ? items : items.filter((i) => i.market === marketFilter);
+  // Build a client-id → market lookup once so task filtering is O(1) not O(N*M)
+  const clientMarketMap = useMemo(() =>
+    new Map(clients.map((c) => [c.id, c.market])),
+  [clients]);
 
-  const filteredClients = filterByMarket(clients);
-  const filteredDeliverables = filterByMarket(deliverables);
-  const filteredInvoices = filterByMarket(invoices);
-  const filteredTasks = marketFilter === "all" ? tasks : tasks.filter((t) => {
+  const filteredClients      = useMemo(() => marketFilter === "all" ? clients      : clients.filter((c) => c.market === marketFilter),      [clients, marketFilter]);
+  const filteredDeliverables = useMemo(() => marketFilter === "all" ? deliverables : deliverables.filter((d) => d.market === marketFilter),  [deliverables, marketFilter]);
+  const filteredInvoices     = useMemo(() => marketFilter === "all" ? invoices     : invoices.filter((i) => i.market === marketFilter),      [invoices, marketFilter]);
+  const filteredTasks        = useMemo(() => marketFilter === "all" ? tasks : tasks.filter((t) => {
     if (!t.clientId) return false;
-    const client = clients.find((c) => c.id === t.clientId);
-    return client?.market === marketFilter;
-  });
+    return clientMarketMap.get(t.clientId) === marketFilter;
+  }), [tasks, marketFilter, clientMarketMap]);
 
   // Revenue by month
-  const revenueByMonth = filteredInvoices
-    .filter((i) => i.status === "Paid")
-    .reduce((acc, inv) => {
-      const month = inv.month;
-      acc[month] = (acc[month] || 0) + inv.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const revenueChartData = Object.entries(revenueByMonth)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, amount]) => ({ month, amount }));
+  const revenueChartData = useMemo(() => {
+    const byMonth = filteredInvoices
+      .filter((i) => i.status === "Paid")
+      .reduce((acc, inv) => { acc[inv.month] = (acc[inv.month] || 0) + inv.amount; return acc; }, {} as Record<string, number>);
+    return Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, amount]) => ({ month, amount }));
+  }, [filteredInvoices]);
 
   // Revenue by market
-  const revenueByMarket = filteredInvoices
-    .filter((i) => i.status === "Paid")
-    .reduce((acc, inv) => {
-      acc[inv.market] = (acc[inv.market] || 0) + inv.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const marketChartData = Object.entries(revenueByMarket).map(([name, value]) => ({ name, value }));
+  const marketChartData = useMemo(() => {
+    const byMarket = filteredInvoices
+      .filter((i) => i.status === "Paid")
+      .reduce((acc, inv) => { acc[inv.market] = (acc[inv.market] || 0) + inv.amount; return acc; }, {} as Record<string, number>);
+    return Object.entries(byMarket).map(([name, value]) => ({ name, value }));
+  }, [filteredInvoices]);
 
   // Deliverable status breakdown
-  const delivStatusCounts = filteredDeliverables.reduce((acc, d) => {
-    acc[d.status] = (acc[d.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const delivChartData = useMemo(() => {
+    const counts = filteredDeliverables.reduce((acc, d) => { acc[d.status] = (acc[d.status] || 0) + 1; return acc; }, {} as Record<string, number>);
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [filteredDeliverables]);
 
-  const delivChartData = Object.entries(delivStatusCounts).map(([name, value]) => ({ name, value }));
-
-  // Client health scores (enhanced)
-  const clientHealth = filteredClients
-    .filter((c) => c.status === "Active")
-    .map((c) => calculateHealthScore(c, deliverables, invoices, tasks))
-    .sort((a, b) => a.score - b.score);
+  // Client health scores
+  const clientHealth = useMemo(() =>
+    filteredClients
+      .filter((c) => c.status === "Active")
+      .map((c) => calculateHealthScore(c, deliverables, invoices, tasks))
+      .sort((a, b) => a.score - b.score),
+  [filteredClients, deliverables, invoices, tasks]);
 
   const healthColors: Record<string, string> = {
     Healthy: "bg-green-500/10 text-green-600",
@@ -81,15 +75,15 @@ export default function Reports() {
   };
 
   // Summary stats
-  const totalRevenue = filteredInvoices
-    .filter((i) => i.status === "Paid")
-    .reduce((sum, i) => sum + i.amount, 0);
-  const completionRate = filteredDeliverables.length > 0
+  const totalRevenue = useMemo(() =>
+    filteredInvoices.filter((i) => i.status === "Paid").reduce((sum, i) => sum + i.amount, 0),
+  [filteredInvoices]);
+  const completionRate = useMemo(() => filteredDeliverables.length > 0
     ? Math.round((filteredDeliverables.filter((d) => d.status === "Delivered" || d.status === "Approved").length / filteredDeliverables.length) * 100)
-    : 0;
-  const taskCompletionRate = filteredTasks.length > 0
+    : 0, [filteredDeliverables]);
+  const taskCompletionRate = useMemo(() => filteredTasks.length > 0
     ? Math.round((filteredTasks.filter((t) => t.status === "Done").length / filteredTasks.length) * 100)
-    : 0;
+    : 0, [filteredTasks]);
 
   if (isLoading) {
     return (

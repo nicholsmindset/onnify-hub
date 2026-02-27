@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from "@/hooks/use-clients";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,12 +43,12 @@ export default function Clients() {
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
 
-  const healthScores = clients.reduce((acc, c) => {
+  const healthScores = useMemo(() => clients.reduce((acc, c) => {
     if (c.status === "Active") {
       acc[c.id] = calculateHealthScore(c, allDeliverables, allInvoices, allTasks);
     }
     return acc;
-  }, {} as Record<string, ReturnType<typeof calculateHealthScore>>);
+  }, {} as Record<string, ReturnType<typeof calculateHealthScore>>), [clients, allDeliverables, allInvoices, allTasks]);
 
   const handleCreate = (data: ClientFormValues) => {
     createMutation.mutate(

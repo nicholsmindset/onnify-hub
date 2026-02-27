@@ -71,9 +71,17 @@ export function useCreateClient() {
       if (error) throw error;
       return mapClient(data as Record<string, unknown>);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Client created successfully");
+      supabase.from("activity_logs").insert({
+        event_type: "client_created",
+        title: `New client added: ${data.companyName}`,
+        client_id: data.id,
+        client_name: data.companyName,
+        actor: "agency",
+        link_path: `/clients/${data.id}`,
+      }).then(() => {}).catch(() => {});
     },
     onError: (error) => {
       toast.error(`Failed to create client: ${error.message}`);
