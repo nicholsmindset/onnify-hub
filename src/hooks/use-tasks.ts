@@ -40,9 +40,9 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (values: Partial<Task> & { taskId?: string }) => {
       const row = toTaskRow(values);
-      if (values.taskId) {
-        (row as Record<string, unknown>).task_id = values.taskId;
-      }
+      const { data: idData, error: idError } = await supabase.rpc("generate_task_id");
+      if (idError) throw idError;
+      (row as Record<string, unknown>).task_id = idData;
       const { data, error } = await supabase
         .from("tasks")
         .insert(row)

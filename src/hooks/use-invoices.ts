@@ -40,9 +40,9 @@ export function useCreateInvoice() {
   return useMutation({
     mutationFn: async (values: Partial<Invoice> & { invoiceId?: string }) => {
       const row = toInvoiceRow(values);
-      if (values.invoiceId) {
-        (row as Record<string, unknown>).invoice_id = values.invoiceId;
-      }
+      const { data: idData, error: idError } = await supabase.rpc("generate_invoice_id");
+      if (idError) throw idError;
+      (row as Record<string, unknown>).invoice_id = idData;
       const { data, error } = await supabase
         .from("invoices")
         .insert(row)

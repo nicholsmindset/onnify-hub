@@ -56,9 +56,9 @@ export function useCreateDeliverable() {
   return useMutation({
     mutationFn: async (values: Partial<Deliverable> & { deliverableId?: string }) => {
       const row = toDeliverableRow(values);
-      if (values.deliverableId) {
-        (row as Record<string, unknown>).deliverable_id = values.deliverableId;
-      }
+      const { data: idData, error: idError } = await supabase.rpc("generate_deliverable_id");
+      if (idError) throw idError;
+      (row as Record<string, unknown>).deliverable_id = idData;
       const { data, error } = await supabase
         .from("deliverables")
         .insert(row)

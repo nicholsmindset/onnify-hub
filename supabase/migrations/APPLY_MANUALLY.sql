@@ -297,3 +297,18 @@ DO $$ BEGIN
   CREATE POLICY "Allow all for anon" ON portal_messages FOR ALL USING (true) WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ============================================
+-- GRANT TABLE ACCESS TO ANON + AUTHENTICATED
+-- Run this if you see "permission denied for table X"
+-- ============================================
+
+GRANT ALL ON TABLE public.content_items       TO anon, authenticated;
+GRANT ALL ON TABLE public.ghl_connections     TO anon, authenticated;
+GRANT ALL ON TABLE public.ghl_sync_logs       TO anon, authenticated;
+GRANT ALL ON TABLE public.notification_rules  TO anon, authenticated;
+GRANT ALL ON TABLE public.notifications       TO anon, authenticated;
+GRANT ALL ON TABLE public.contacts            TO anon, authenticated;
+GRANT ALL ON TABLE public.team_members        TO anon, authenticated;
+GRANT ALL ON TABLE public.activity_logs       TO anon, authenticated;
+GRANT ALL ON TABLE public.portal_messages     TO anon, authenticated;
