@@ -302,19 +302,28 @@ END $$;
 -- GRANT TABLE ACCESS TO ANON + AUTHENTICATED
 -- Required for all tables when using the anon key.
 -- The service role JWT bypasses grants; the anon key does not.
+-- Safe: skips tables that don't exist yet.
 -- ============================================
 
-GRANT ALL ON TABLE public.clients             TO anon, authenticated;
-GRANT ALL ON TABLE public.deliverables        TO anon, authenticated;
-GRANT ALL ON TABLE public.invoices            TO anon, authenticated;
-GRANT ALL ON TABLE public.tasks               TO anon, authenticated;
-GRANT ALL ON TABLE public.portal_access       TO anon, authenticated;
-GRANT ALL ON TABLE public.content_items       TO anon, authenticated;
-GRANT ALL ON TABLE public.ghl_connections     TO anon, authenticated;
-GRANT ALL ON TABLE public.ghl_sync_logs       TO anon, authenticated;
-GRANT ALL ON TABLE public.notification_rules  TO anon, authenticated;
-GRANT ALL ON TABLE public.notifications       TO anon, authenticated;
-GRANT ALL ON TABLE public.contacts            TO anon, authenticated;
-GRANT ALL ON TABLE public.team_members        TO anon, authenticated;
-GRANT ALL ON TABLE public.activity_logs       TO anon, authenticated;
-GRANT ALL ON TABLE public.portal_messages     TO anon, authenticated;
+DO $$
+DECLARE
+  t text;
+  tables text[] := ARRAY[
+    'clients', 'deliverables', 'invoices', 'tasks',
+    'portal_access', 'content_items', 'ghl_connections',
+    'ghl_sync_logs', 'notification_rules', 'notifications',
+    'contacts', 'team_members', 'activity_logs', 'portal_messages'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = t
+    ) THEN
+      EXECUTE format('GRANT ALL ON TABLE public.%I TO anon, authenticated', t);
+      RAISE NOTICE 'Granted on %', t;
+    ELSE
+      RAISE NOTICE 'Skipped % (does not exist)', t;
+    END IF;
+  END LOOP;
+END $$;
