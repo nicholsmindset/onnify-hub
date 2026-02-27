@@ -63,7 +63,6 @@ export default function Clients() {
         contractEnd: data.contractEnd || undefined,
         monthlyValue: data.monthlyValue,
         ghlUrl: data.ghlUrl || undefined,
-        clientId: `OW-${data.market}-TMP`,
       },
       { onSuccess: () => setCreateOpen(false) }
     );
