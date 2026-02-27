@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePortalAccessList, useCreatePortalAccess, useTogglePortalAccess, useDeletePortalAccess } from "@/hooks/use-portal";
 import { useClients } from "@/hooks/use-clients";
+import { useUnreadPortalMessageCounts, usePortalMessages, useSendPortalMessage, useMarkMessagesRead } from "@/hooks/use-portal-messages";
+import { useClientOnboarding } from "@/hooks/use-onboarding";
+import { usePortalFiles, useUploadPortalFile, useDeletePortalFile, formatFileSize } from "@/hooks/use-portal-files";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,10 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check } from "lucide-react";
-import { PortalAccess } from "@/types";
+import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck } from "lucide-react";
+import { PortalAccess, ClientOnboarding } from "@/types";
 import { toast } from "sonner";
 
 function buildPortalUrl(token: string) {
@@ -32,9 +36,368 @@ function buildMailtoLink(email: string, contactName: string, clientName: string,
   return `mailto:${email}?subject=${subject}&body=${body}`;
 }
 
+// Component to manage files for a client portal (agency side)
+function FilesDialog({ portalAccessId, clientName }: { portalAccessId: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  const { data: files = [], isLoading } = usePortalFiles(open ? portalAccessId : undefined);
+  const uploadFile = useUploadPortalFile();
+  const deleteFile = useDeletePortalFile();
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="Manage files">
+          <Paperclip className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Files — {clientName}</DialogTitle>
+          <DialogDescription>Upload and manage files shared with this client.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* Upload */}
+          <label className="cursor-pointer block">
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                picked.forEach((f) =>
+                  uploadFile.mutate({ portalAccessId, file: f, uploadedBy: "agency" })
+                );
+                e.target.value = "";
+              }}
+            />
+            <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+              <Upload className="h-4 w-4" />
+              {uploadFile.isPending ? "Uploading..." : "Click to upload files for this client"}
+            </div>
+          </label>
+
+          {/* File list */}
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array(3).fill(0).map((_, i) => <div key={i} className="h-12 rounded bg-muted animate-pulse" />)}
+            </div>
+          ) : files.length === 0 ? (
+            <p className="text-sm text-center text-muted-foreground py-4">No files yet.</p>
+          ) : (
+            <div className="rounded-lg border divide-y">
+              {files.map((f) => (
+                <div key={f.id} className="flex items-center gap-3 px-4 py-3">
+                  <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{f.fileName}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{formatFileSize(f.fileSize)}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        f.uploadedBy === "agency"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {f.uploadedBy === "agency" ? "Agency" : "Client"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(f.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a href={f.fileUrl} target="_blank" rel="noopener noreferrer" download={f.fileName}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </a>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => deleteFile.mutate({ id: f.id, portalAccessId, fileUrl: f.fileUrl })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Component to view a client's onboarding brief in a dialog
+function ClientBriefDialog({ portalAccessId, clientName }: { portalAccessId: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  const { data: brief, isLoading } = useClientOnboarding(open ? portalAccessId : undefined);
+
+  const statusLabel = !brief ? "Not started" : !brief.completedAt ? `In progress (step ${brief.currentStep}/6)` : "Complete";
+  const statusColor = !brief ? "secondary" : !brief.completedAt ? "outline" : "default";
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="View client brief">
+          <FileText className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Client Brief — {clientName}</DialogTitle>
+          <DialogDescription>
+            Onboarding information submitted by the client.{" "}
+            <Badge variant={statusColor as "default" | "secondary" | "outline"}>{statusLabel}</Badge>
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        ) : !brief ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            The client hasn't started their onboarding yet.
+          </p>
+        ) : (
+          <div className="space-y-6 mt-4">
+            {/* About */}
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">About the Business</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {brief.industry && (
+                  <div><p className="text-xs text-muted-foreground">Industry</p><p className="font-medium">{brief.industry}</p></div>
+                )}
+                {brief.websiteUrl && (
+                  <div><p className="text-xs text-muted-foreground">Website</p>
+                    <a href={brief.websiteUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline truncate block">{brief.websiteUrl}</a>
+                  </div>
+                )}
+                {brief.businessDescription && (
+                  <div className="col-span-2"><p className="text-xs text-muted-foreground">What they do</p><p>{brief.businessDescription}</p></div>
+                )}
+                {brief.targetAudience && (
+                  <div className="col-span-2"><p className="text-xs text-muted-foreground">Target Audience</p><p>{brief.targetAudience}</p></div>
+                )}
+              </div>
+            </section>
+
+            {/* Brand */}
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">Brand Identity</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {(brief.primaryColor || brief.secondaryColor) && (
+                  <div className="col-span-2 flex items-center gap-4">
+                    {brief.primaryColor && (
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded border" style={{ background: brief.primaryColor }} />
+                        <span className="text-xs font-mono">{brief.primaryColor}</span>
+                        <span className="text-xs text-muted-foreground">Primary</span>
+                      </div>
+                    )}
+                    {brief.secondaryColor && (
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded border" style={{ background: brief.secondaryColor }} />
+                        <span className="text-xs font-mono">{brief.secondaryColor}</span>
+                        <span className="text-xs text-muted-foreground">Secondary</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {brief.fontPreferences && (
+                  <div><p className="text-xs text-muted-foreground">Font Preferences</p><p>{brief.fontPreferences}</p></div>
+                )}
+                {brief.brandVoice && (
+                  <div><p className="text-xs text-muted-foreground">Brand Voice</p>
+                    <Badge variant="outline">{brief.brandVoice}</Badge>
+                  </div>
+                )}
+                {brief.brandDos && (
+                  <div><p className="text-xs text-muted-foreground">Do's ✅</p><p className="text-xs whitespace-pre-wrap">{brief.brandDos}</p></div>
+                )}
+                {brief.brandDonts && (
+                  <div><p className="text-xs text-muted-foreground">Don'ts ❌</p><p className="text-xs whitespace-pre-wrap">{brief.brandDonts}</p></div>
+                )}
+              </div>
+            </section>
+
+            {/* Competitors */}
+            {brief.competitors && brief.competitors.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">Competitors</h3>
+                <div className="space-y-2">
+                  {brief.competitors.map((c, i) => (
+                    <div key={i} className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{c.name}</span>
+                        {c.url && (
+                          <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">{c.url}</a>
+                        )}
+                      </div>
+                      {c.notes && <p className="text-xs text-muted-foreground">{c.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Goals */}
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">Goals & Expectations</h3>
+              <div className="space-y-3 text-sm">
+                {brief.goals && (
+                  <div><p className="text-xs text-muted-foreground">Main Goals</p><p>{brief.goals}</p></div>
+                )}
+                {(brief.priority1 || brief.priority2 || brief.priority3) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Top Priorities</p>
+                    <div className="space-y-1">
+                      {brief.priority1 && <p className="flex gap-2"><span className="font-mono text-xs text-muted-foreground">#1</span>{brief.priority1}</p>}
+                      {brief.priority2 && <p className="flex gap-2"><span className="font-mono text-xs text-muted-foreground">#2</span>{brief.priority2}</p>}
+                      {brief.priority3 && <p className="flex gap-2"><span className="font-mono text-xs text-muted-foreground">#3</span>{brief.priority3}</p>}
+                    </div>
+                  </div>
+                )}
+                {brief.communicationStyle && (
+                  <div><p className="text-xs text-muted-foreground">Preferred Communication</p>
+                    <Badge variant="outline">{brief.communicationStyle}</Badge>
+                  </div>
+                )}
+                {brief.additionalNotes && (
+                  <div><p className="text-xs text-muted-foreground">Additional Notes</p><p className="text-xs whitespace-pre-wrap">{brief.additionalNotes}</p></div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function MessagesDialog({
+  clientId,
+  clientName,
+  unreadCount,
+}: {
+  clientId: string;
+  clientName: string;
+  unreadCount: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const { data: messages = [], isLoading } = usePortalMessages(open ? clientId : undefined);
+  const sendMessage = useSendPortalMessage();
+  const markRead = useMarkMessagesRead();
+
+  // Mark client messages as read when dialog opens
+  useEffect(() => {
+    if (open && unreadCount > 0) {
+      markRead.mutate({ clientId, senderType: "client" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    sendMessage.mutate(
+      { clientId, senderType: "agency", senderName: "ONNIFY WORKS", message: text, clientName },
+      { onSuccess: () => setText("") }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 relative" title="Messages">
+          <MessageSquare className="h-3.5 w-3.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] text-white flex items-center justify-center font-bold">
+              {unreadCount}
+            </span>
+          )}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg flex flex-col max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle>Messages — {clientName}</DialogTitle>
+          <DialogDescription>Chat thread with this client contact.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0 max-h-72 space-y-3 py-2 pr-1">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array(3).fill(0).map((_, i) => <div key={i} className="h-12 rounded bg-muted animate-pulse" />)}
+            </div>
+          ) : messages.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">No messages yet</p>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.senderType === "agency" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[75%] rounded-lg px-3 py-2 ${msg.senderType === "agency" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-medium opacity-80">{msg.senderName}</span>
+                    <span className="text-[10px] opacity-60">
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <p className="text-sm">{msg.message}</p>
+                  {msg.senderType === "agency" && (
+                    <div className="flex justify-end mt-0.5">
+                      <span className={`text-[10px] flex items-center gap-0.5 ${msg.isRead ? "opacity-100" : "opacity-40"}`}>
+                        <CheckCheck className="h-3 w-3" />
+                        {msg.isRead ? "Seen" : "Sent"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex gap-2 border-t pt-3 mt-auto">
+          <Textarea
+            placeholder="Type a message..."
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="flex-1 text-sm"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+          />
+          <Button onClick={handleSend} disabled={!text.trim() || sendMessage.isPending} className="self-end">
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PortalAdmin() {
   const { data: accesses = [], isLoading } = usePortalAccessList();
   const { data: clients = [] } = useClients();
+  const { data: unreadCounts = {} } = useUnreadPortalMessageCounts();
   const createMutation = useCreatePortalAccess();
   const toggleMutation = useTogglePortalAccess();
   const deleteMutation = useDeletePortalAccess();
@@ -44,17 +407,14 @@ export default function PortalAdmin() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactName, setContactName] = useState("");
   const [deleteAccess, setDeleteAccess] = useState<PortalAccess | null>(null);
-
-  // State for the "access created" success dialog
   const [createdAccess, setCreatedAccess] = useState<{ token: string; contactName: string; contactEmail: string; clientName: string } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
   const existingClientIds = accesses.map((a) => a.clientId);
   const availableClients = clients.filter((c) => !existingClientIds.includes(c.id));
 
-  const getClientName = (clientId: string) => {
-    return clients.find((c) => c.id === clientId)?.companyName || "Unknown";
-  };
+  const getClientName = (clientId: string) =>
+    clients.find((c) => c.id === clientId)?.companyName || "Unknown";
 
   const handleCreate = () => {
     if (!selectedClientId || !contactEmail || !contactName) return;
@@ -64,15 +424,8 @@ export default function PortalAdmin() {
       {
         onSuccess: (data) => {
           setCreateOpen(false);
-          // Show the success dialog with portal link
-          setCreatedAccess({
-            token: data.accessToken,
-            contactName,
-            contactEmail,
-            clientName,
-          });
+          setCreatedAccess({ token: data.accessToken, contactName, contactEmail, clientName });
           setLinkCopied(false);
-          // Reset create form
           setSelectedClientId("");
           setContactEmail("");
           setContactName("");
@@ -87,18 +440,18 @@ export default function PortalAdmin() {
   };
 
   const copyPortalLink = (token: string) => {
-    const url = buildPortalUrl(token);
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(buildPortalUrl(token));
     toast.success("Portal link copied to clipboard");
   };
 
   const sendInviteEmail = (access: PortalAccess) => {
     const clientName = getClientName(access.clientId);
     const portalUrl = buildPortalUrl(access.accessToken);
-    const mailto = buildMailtoLink(access.contactEmail, access.contactName, clientName, portalUrl);
-    window.open(mailto, "_blank");
+    window.open(buildMailtoLink(access.contactEmail, access.contactName, clientName, portalUrl), "_blank");
     toast.success(`Opening email to ${access.contactEmail}`);
   };
+
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
   if (isLoading) {
     return (
@@ -115,7 +468,12 @@ export default function PortalAdmin() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold">Client Portal Management</h1>
+          <h1 className="text-2xl font-display font-bold flex items-center gap-3">
+            Client Portal Management
+            {totalUnread > 0 && (
+              <Badge className="bg-destructive text-xs">{totalUnread} unread</Badge>
+            )}
+          </h1>
           <p className="text-muted-foreground">Manage external client access to their project dashboards</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -155,7 +513,7 @@ export default function PortalAdmin() {
         </Dialog>
       </div>
 
-      {/* Success dialog - shown after creating portal access */}
+      {/* Success dialog */}
       <Dialog open={!!createdAccess} onOpenChange={(open) => !open && setCreatedAccess(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -165,17 +523,12 @@ export default function PortalAdmin() {
           {createdAccess && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">
-                Access has been created for <span className="font-medium text-foreground">{createdAccess.contactName}</span> ({createdAccess.clientName}).
-                Share the portal link below with the client.
+                Access created for <span className="font-medium text-foreground">{createdAccess.contactName}</span> ({createdAccess.clientName}).
               </p>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Portal Link</Label>
                 <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={buildPortalUrl(createdAccess.token)}
-                    className="text-xs font-mono"
-                  />
+                  <Input readOnly value={buildPortalUrl(createdAccess.token)} className="text-xs font-mono" />
                   <Button
                     variant="outline"
                     size="icon"
@@ -191,23 +544,18 @@ export default function PortalAdmin() {
                   </Button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    const portalUrl = buildPortalUrl(createdAccess.token);
-                    const mailto = buildMailtoLink(createdAccess.contactEmail, createdAccess.contactName, createdAccess.clientName, portalUrl);
-                    window.open(mailto, "_blank");
-                    toast.success(`Opening email to ${createdAccess.contactEmail}`);
-                  }}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email to {createdAccess.contactName}
-                </Button>
-              </div>
-              <Button variant="outline" className="w-full" onClick={() => setCreatedAccess(null)}>
-                Done
+              <Button
+                className="w-full"
+                onClick={() => {
+                  const portalUrl = buildPortalUrl(createdAccess.token);
+                  window.open(buildMailtoLink(createdAccess.contactEmail, createdAccess.contactName, createdAccess.clientName, portalUrl), "_blank");
+                  toast.success(`Opening email to ${createdAccess.contactEmail}`);
+                }}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Send Email to {createdAccess.contactName}
               </Button>
+              <Button variant="outline" className="w-full" onClick={() => setCreatedAccess(null)}>Done</Button>
             </div>
           )}
         </DialogContent>
@@ -235,11 +583,11 @@ export default function PortalAdmin() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Disabled</CardTitle>
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Unread Messages</CardTitle>
+            <MessageSquare className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-display font-bold">{accesses.filter((a) => !a.isActive).length}</div>
+            <div className="text-3xl font-display font-bold">{totalUnread}</div>
           </CardContent>
         </Card>
       </div>
@@ -253,49 +601,59 @@ export default function PortalAdmin() {
               <TableHead>Contact</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Messages</TableHead>
               <TableHead>Last Accessed</TableHead>
-              <TableHead className="w-[180px]">Actions</TableHead>
+              <TableHead className="w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accesses.map((access) => (
-              <TableRow key={access.id}>
-                <TableCell className="font-medium">{getClientName(access.clientId)}</TableCell>
-                <TableCell>{access.contactName}</TableCell>
-                <TableCell className="text-sm">{access.contactEmail}</TableCell>
-                <TableCell>
-                  {access.isActive ? (
-                    <Badge variant="default">Active</Badge>
-                  ) : (
-                    <Badge variant="secondary">Disabled</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {access.lastAccessedAt ? new Date(access.lastAccessedAt).toLocaleDateString() : "Never"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
-                      <Mail className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy portal link" onClick={() => copyPortalLink(access.accessToken)}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Switch
-                      checked={access.isActive}
-                      onCheckedChange={(checked) => toggleMutation.mutate({ id: access.id, isActive: checked })}
-                    />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteAccess(access)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {accesses.map((access) => {
+              const clientName = getClientName(access.clientId);
+              const unread = unreadCounts[access.clientId] || 0;
+              return (
+                <TableRow key={access.id} className={unread > 0 ? "bg-destructive/5" : ""}>
+                  <TableCell className="font-medium">{clientName}</TableCell>
+                  <TableCell>{access.contactName}</TableCell>
+                  <TableCell className="text-sm">{access.contactEmail}</TableCell>
+                  <TableCell>
+                    {access.isActive ? (
+                      <Badge variant="default">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary">Disabled</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <MessagesDialog clientId={access.clientId} clientName={clientName} unreadCount={unread} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {access.lastAccessedAt ? timeAgo(access.lastAccessedAt) : "Never"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <FilesDialog portalAccessId={access.id} clientName={clientName} />
+                      <ClientBriefDialog portalAccessId={access.id} clientName={clientName} />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
+                        <Mail className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy portal link" onClick={() => copyPortalLink(access.accessToken)}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Switch
+                        checked={access.isActive}
+                        onCheckedChange={(checked) => toggleMutation.mutate({ id: access.id, isActive: checked })}
+                      />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteAccess(access)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {accesses.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No portal accesses created yet. Grant access to a client to generate their portal link.
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  No portal accesses created yet.
                 </TableCell>
               </TableRow>
             )}

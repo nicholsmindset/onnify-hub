@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePortalAccessByToken } from "@/hooks/use-portal";
-import { useDeliverables, useUpdateDeliverable } from "@/hooks/use-deliverables";
+import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { useClient } from "@/hooks/use-clients";
-import { usePortalMessages, useSendPortalMessage } from "@/hooks/use-portal-messages";
+import { usePortalMessages, useSendPortalMessage, useMarkMessagesRead } from "@/hooks/use-portal-messages";
+import { useClientOnboarding } from "@/hooks/use-onboarding";
+import { OnboardingWizard } from "@/components/portal/OnboardingWizard";
+import { useUpdateDeliverable } from "@/hooks/use-deliverables";
+import { usePortalFiles, useUploadPortalFile, useDeletePortalFile, formatFileSize } from "@/hooks/use-portal-files";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   FileCheck, Receipt, ListTodo, LogIn, Building2,
   CheckCircle, XCircle, MessageSquare, Send, ThumbsUp,
-  ExternalLink,
+  ExternalLink, Circle, Paperclip, Upload, Download, Trash2, File, Phone,
 } from "lucide-react";
 import { Deliverable, DeliverableStatus, InvoiceStatus } from "@/types";
 import { toast } from "sonner";
@@ -37,6 +41,14 @@ const invStatusColor: Record<InvoiceStatus, string> = {
   Paid: "bg-green-500/10 text-green-600",
   Overdue: "bg-red-500/10 text-red-600",
 };
+
+// Kanban column config
+const KANBAN_COLUMNS: Array<{ title: string; statuses: DeliverableStatus[]; accent: string; dot: string }> = [
+  { title: "Not Started", statuses: ["Not Started"], accent: "border-muted-foreground/30", dot: "bg-muted-foreground" },
+  { title: "In Progress", statuses: ["In Progress"], accent: "border-blue-400", dot: "bg-blue-500" },
+  { title: "In Review", statuses: ["Review"], accent: "border-yellow-400", dot: "bg-yellow-500" },
+  { title: "Done", statuses: ["Delivered", "Approved"], accent: "border-green-400", dot: "bg-green-500" },
+];
 
 function PortalLogin({ onLogin }: { onLogin: (token: string) => void }) {
   const [token, setToken] = useState("");
@@ -74,10 +86,12 @@ function DeliverableCard({
   deliverable,
   contactName,
   clientId,
+  compact = false,
 }: {
   deliverable: Deliverable;
   contactName: string;
   clientId: string;
+  compact?: boolean;
 }) {
   const updateDeliverable = useUpdateDeliverable();
   const sendMessage = useSendPortalMessage();
@@ -102,30 +116,7 @@ function DeliverableCard({
     );
   };
 
-  const handleRequestChanges = () => {
-    if (!feedback.trim()) {
-      toast.error("Please describe the changes you'd like");
-      return;
-    }
-    sendMessage.mutate(
-      {
-        clientId,
-        deliverableId: deliverable.id,
-        senderType: "client",
-        senderName: contactName,
-        message: `Requested changes on "${deliverable.name}": ${feedback}`,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Feedback sent to the team");
-          setFeedback("");
-          setShowFeedback(false);
-        },
-      }
-    );
-  };
-
-  const handleSendComment = () => {
+  const handleSendFeedback = () => {
     if (!feedback.trim()) return;
     sendMessage.mutate(
       {
@@ -133,11 +124,11 @@ function DeliverableCard({
         deliverableId: deliverable.id,
         senderType: "client",
         senderName: contactName,
-        message: feedback,
+        message: `Feedback on "${deliverable.name}": ${feedback}`,
       },
       {
         onSuccess: () => {
-          toast.success("Comment sent");
+          toast.success("Feedback sent");
           setFeedback("");
           setShowFeedback(false);
         },
@@ -146,123 +137,244 @@ function DeliverableCard({
   };
 
   const canApprove = deliverable.status === "Delivered" && !deliverable.clientApproved;
-  const canComment = deliverable.status !== "Not Started";
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="font-medium text-sm">{deliverable.name}</p>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">{deliverable.serviceType}</Badge>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${delivStatusColor[deliverable.status]}`}>
-                {deliverable.status}
-              </span>
+    <Card className={compact ? "shadow-none" : ""}>
+      <CardContent className={compact ? "p-3" : "p-4"}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1 min-w-0">
+            <p className={`font-medium ${compact ? "text-xs" : "text-sm"} truncate`}>{deliverable.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {!compact && (
+                <Badge variant="outline" className="text-[10px] h-4">{deliverable.serviceType}</Badge>
+              )}
+              {deliverable.clientApproved && (
+                <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
+                  <CheckCircle className="h-3 w-3" /> Approved
+                </span>
+              )}
+              {deliverable.status === "Delivered" && !deliverable.clientApproved && (
+                <span className="text-[10px] text-yellow-600 font-medium">Awaiting approval</span>
+              )}
             </div>
-            {deliverable.description && (
-              <p className="text-xs text-muted-foreground mt-1">{deliverable.description}</p>
-            )}
-            <p className="text-xs text-muted-foreground">Due: {deliverable.dueDate}</p>
+            <p className="text-[10px] text-muted-foreground">Due {deliverable.dueDate}</p>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            {deliverable.clientApproved ? (
-              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                <CheckCircle className="h-3 w-3 mr-1" /> Approved
-              </Badge>
-            ) : deliverable.status === "Delivered" ? (
-              <Badge variant="outline" className="text-yellow-600 border-yellow-500/20">
-                Awaiting Approval
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                {deliverable.status}
-              </Badge>
-            )}
-            {deliverable.fileLink && (
-              <a href={deliverable.fileLink} target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-                  <ExternalLink className="h-3 w-3" /> View File
-                </Button>
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 mt-3">
-          {canApprove && (
-            <Button
-              size="sm"
-              className="h-8 text-xs gap-1"
-              onClick={handleApprove}
-              disabled={updateDeliverable.isPending}
-            >
-              <ThumbsUp className="h-3 w-3" />
-              {updateDeliverable.isPending ? "Approving..." : "Approve"}
-            </Button>
-          )}
-          {canComment && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1"
-              onClick={() => setShowFeedback(!showFeedback)}
-            >
-              <MessageSquare className="h-3 w-3" />
-              {canApprove ? "Request Changes" : "Add Comment"}
-            </Button>
+          {deliverable.fileLink && (
+            <a href={deliverable.fileLink} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </a>
           )}
         </div>
 
-        {/* Feedback / comment input */}
-        {showFeedback && (
-          <div className="mt-3 space-y-2">
-            <Textarea
-              placeholder={canApprove ? "Describe the changes you'd like..." : "Leave a comment..."}
-              rows={2}
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              className="text-sm"
-            />
-            <div className="flex gap-2">
+        {!compact && (
+          <>
+            <div className="flex gap-2 mt-3">
               {canApprove && (
                 <Button
                   size="sm"
-                  variant="destructive"
                   className="h-7 text-xs gap-1"
-                  onClick={handleRequestChanges}
-                  disabled={sendMessage.isPending || !feedback.trim()}
+                  onClick={handleApprove}
+                  disabled={updateDeliverable.isPending}
                 >
-                  <XCircle className="h-3 w-3" /> Request Changes
+                  <ThumbsUp className="h-3 w-3" />
+                  Approve
                 </Button>
               )}
               <Button
+                variant="outline"
                 size="sm"
                 className="h-7 text-xs gap-1"
-                onClick={handleSendComment}
-                disabled={sendMessage.isPending || !feedback.trim()}
+                onClick={() => setShowFeedback(!showFeedback)}
               >
-                <Send className="h-3 w-3" /> Send Comment
+                <MessageSquare className="h-3 w-3" />
+                {canApprove ? "Request Changes" : "Comment"}
               </Button>
             </div>
-          </div>
+
+            {showFeedback && (
+              <div className="mt-3 space-y-2">
+                <Textarea
+                  placeholder="Leave a comment or request changes..."
+                  rows={2}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  className="text-sm"
+                />
+                <div className="flex gap-2">
+                  {canApprove && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs gap-1"
+                      onClick={handleSendFeedback}
+                      disabled={sendMessage.isPending || !feedback.trim()}
+                    >
+                      <XCircle className="h-3 w-3" /> Request Changes
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={handleSendFeedback}
+                    disabled={sendMessage.isPending || !feedback.trim()}
+                  >
+                    <Send className="h-3 w-3" /> Send
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function PortalDashboard({ clientId, contactName }: { clientId: string; contactName: string }) {
+function KanbanBoard({
+  deliverables,
+  contactName,
+  clientId,
+}: {
+  deliverables: Deliverable[];
+  contactName: string;
+  clientId: string;
+}) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {KANBAN_COLUMNS.map((col) => {
+        const items = deliverables.filter((d) => col.statuses.includes(d.status));
+        return (
+          <div key={col.title} className={`rounded-lg border-t-2 bg-muted/30 p-3 space-y-2 ${col.accent}`}>
+            <div className="flex items-center gap-2">
+              <Circle className={`h-2 w-2 ${col.dot} rounded-full fill-current`} />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{col.title}</span>
+              <span className="ml-auto text-xs font-mono text-muted-foreground">{items.length}</span>
+            </div>
+            <div className="space-y-2">
+              {items.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground text-center py-4">No items</p>
+              ) : (
+                items.map((d) => (
+                  <DeliverableCard key={d.id} deliverable={d} contactName={contactName} clientId={clientId} compact />
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function WhatsNew({
+  messages,
+  files,
+}: {
+  messages: Array<{ id: string; senderType: string; senderName: string; message: string; createdAt: string }>;
+  files: Array<{ id: string; uploadedBy: string; fileName: string; createdAt: string }>;
+}) {
+  type FeedItem = { key: string; text: string; kind: "message" | "file"; date: string };
+  const items: FeedItem[] = [
+    ...messages
+      .filter((m) => m.senderType === "agency")
+      .map((m) => ({
+        key: `msg-${m.id}`,
+        text: `${m.senderName} sent you a message`,
+        kind: "message" as const,
+        date: m.createdAt,
+      })),
+    ...files
+      .filter((f) => f.uploadedBy === "agency")
+      .map((f) => ({
+        key: `file-${f.id}`,
+        text: `Your team shared "${f.fileName}"`,
+        kind: "file" as const,
+        date: f.createdAt,
+      })),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 pt-4 px-4">
+        <CardTitle className="text-sm font-semibold">What's New</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0 pb-1">
+        <div className="divide-y">
+          {items.map((item) => (
+            <div key={item.key} className="flex items-center gap-3 px-4 py-2.5">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                {item.kind === "message" ? (
+                  <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                  <Paperclip className="h-3.5 w-3.5 text-primary" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm truncate">{item.text}</p>
+                <p className="text-[10px] text-muted-foreground">{timeAgo(item.date)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PortalDashboard({
+  clientId,
+  contactName,
+  portalAccessId,
+}: {
+  clientId: string;
+  contactName: string;
+  portalAccessId: string;
+}) {
   const { data: client, isLoading: loadingClient } = useClient(clientId);
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId });
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId });
   const { data: tasks = [], isLoading: loadingTasks } = useTasks({ clientId });
   const { data: messages = [] } = usePortalMessages(clientId);
+  const { data: onboarding, isLoading: loadingOnboarding } = useClientOnboarding(portalAccessId);
+  const { data: files = [] } = usePortalFiles(portalAccessId);
+  const uploadFile = useUploadPortalFile();
+  const deleteFile = useDeletePortalFile();
   const sendMessage = useSendPortalMessage();
+  const markRead = useMarkMessagesRead();
+
   const [messageText, setMessageText] = useState("");
+  const [activeTab, setActiveTab] = useState("deliverables");
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
   const isLoading = loadingClient || loadingDeliverables || loadingInvoices || loadingTasks;
+
+  // Count unread messages from agency
+  const unreadFromAgency = messages.filter((m) => m.senderType === "agency" && !m.isRead).length;
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "messages" && unreadFromAgency > 0) {
+      markRead.mutate({ clientId, senderType: "agency" });
+    }
+  };
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
@@ -281,6 +393,18 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
       }
     );
   };
+
+  // Show onboarding wizard fullscreen until completed
+  const showWizard = !loadingOnboarding && !onboarding?.completedAt && !onboardingDone;
+  if (showWizard) {
+    return (
+      <OnboardingWizard
+        portalAccessId={portalAccessId}
+        contactName={contactName}
+        onComplete={() => setOnboardingDone(true)}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -303,7 +427,7 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+      <header className="border-b bg-card sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
@@ -314,24 +438,38 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
               <p className="text-xs text-muted-foreground">Client Portal</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{client?.companyName}</span>
-            <span className="text-xs text-muted-foreground">({contactName})</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{client?.companyName}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">({contactName})</span>
+            </div>
+            <a
+              href={`mailto:team@onnify.com?subject=${encodeURIComponent(`Meeting Request – ${client?.companyName ?? ""}`)}&body=${encodeURIComponent(`Hi,\n\nI'd like to schedule a call to discuss the ${client?.companyName ?? ""} project.\n\nPlease let me know your availability.\n\nBest,\n${contactName}`)}`}
+            >
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
+                <Phone className="h-3 w-3" />
+                Request a Call
+              </Button>
+            </a>
           </div>
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-        {/* Welcome Banner */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="py-4">
-            <p className="text-sm font-medium">Welcome back, {contactName}!</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Here's an overview of your project with ONNIFY WORKS. You can approve deliverables, leave feedback, and communicate with your team directly from this portal.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Welcome / onboarding complete banner */}
+        {onboardingDone && (
+          <Card className="bg-green-500/5 border-green-500/20">
+            <CardContent className="py-3">
+              <p className="text-sm font-medium text-green-700">
+                Welcome! Your onboarding brief has been submitted. Your team will review it shortly.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* What's New feed */}
+        <WhatsNew messages={messages} files={files} />
 
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
@@ -375,58 +513,48 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="deliverables">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices ({invoices.length})</TabsTrigger>
+            <TabsTrigger value="deliverables">
+              Deliverables {deliverables.length > 0 && `(${deliverables.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="invoices">
+              Invoices {invoices.length > 0 && `(${invoices.length})`}
+            </TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="messages" className="gap-1">
+            <TabsTrigger value="files" className="gap-1">
+              <Paperclip className="h-3.5 w-3.5" />
+              Files {files.length > 0 && `(${files.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="relative gap-1">
               <MessageSquare className="h-3.5 w-3.5" />
-              Messages {messages.length > 0 && `(${messages.length})`}
+              Messages
+              {unreadFromAgency > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[9px] text-white flex items-center justify-center font-bold">
+                  {unreadFromAgency}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
-          {/* Deliverables - Card layout with approve/feedback */}
+          {/* Deliverables — Phase 3 Kanban board */}
           <TabsContent value="deliverables" className="mt-4">
             {deliverables.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No deliverables yet</p>
             ) : (
-              <div className="space-y-3">
-                {/* Pending approval section */}
-                {deliverables.filter((d) => d.status === "Delivered" && !d.clientApproved).length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-yellow-600 uppercase tracking-wider">Awaiting Your Approval</p>
-                    {deliverables
-                      .filter((d) => d.status === "Delivered" && !d.clientApproved)
-                      .map((d) => (
-                        <DeliverableCard key={d.id} deliverable={d} contactName={contactName} clientId={clientId} />
-                      ))}
-                  </div>
+              <div className="space-y-4">
+                {/* Awaiting approval callout */}
+                {deliverables.some((d) => d.status === "Delivered" && !d.clientApproved) && (
+                  <Card className="border-yellow-400/50 bg-yellow-500/5">
+                    <CardContent className="py-3">
+                      <p className="text-sm font-medium text-yellow-700">
+                        You have {deliverables.filter((d) => d.status === "Delivered" && !d.clientApproved).length} deliverable(s) awaiting your approval.
+                        Review them in the "Done" column below.
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
-
-                {/* In progress section */}
-                {deliverables.filter((d) => d.status !== "Delivered" && d.status !== "Approved").length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-4">In Progress</p>
-                    {deliverables
-                      .filter((d) => d.status !== "Delivered" && d.status !== "Approved")
-                      .map((d) => (
-                        <DeliverableCard key={d.id} deliverable={d} contactName={contactName} clientId={clientId} />
-                      ))}
-                  </div>
-                )}
-
-                {/* Completed section */}
-                {deliverables.filter((d) => d.clientApproved).length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider mt-4">Approved</p>
-                    {deliverables
-                      .filter((d) => d.clientApproved)
-                      .map((d) => (
-                        <DeliverableCard key={d.id} deliverable={d} contactName={contactName} clientId={clientId} />
-                      ))}
-                  </div>
-                )}
+                <KanbanBoard deliverables={deliverables} contactName={contactName} clientId={clientId} />
               </div>
             )}
           </TabsContent>
@@ -452,7 +580,7 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
                       <TableCell>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${invStatusColor[inv.status]}`}>{inv.status}</span>
                       </TableCell>
-                      <TableCell>{inv.paymentDate || "-"}</TableCell>
+                      <TableCell>{inv.paymentDate || "—"}</TableCell>
                     </TableRow>
                   ))}
                   {invoices.length === 0 && (
@@ -491,11 +619,88 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
             </div>
           </TabsContent>
 
+          {/* Files Tab */}
+          <TabsContent value="files" className="mt-4">
+            <div className="space-y-4">
+              {/* Upload button */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Share files with your ONNIFY WORKS team.
+                </p>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      picked.forEach((f) =>
+                        uploadFile.mutate({ portalAccessId, file: f, uploadedBy: "client" })
+                      );
+                      e.target.value = "";
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadFile.isPending ? "Uploading..." : "Upload Files"}
+                  </span>
+                </label>
+              </div>
+
+              {/* File list */}
+              {files.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-12 text-center">
+                  <Paperclip className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">No files yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Upload files to share with your team.</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border bg-card divide-y">
+                  {files.map((f) => (
+                    <div key={f.id} className="flex items-center gap-3 px-4 py-3">
+                      <File className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{f.fileName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-muted-foreground">{formatFileSize(f.fileSize)}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            f.uploadedBy === "agency"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {f.uploadedBy === "agency" ? "ONNIFY" : "You"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(f.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <a href={f.fileUrl} target="_blank" rel="noopener noreferrer" download={f.fileName}>
+                          <button className="p-1.5 rounded hover:bg-muted transition-colors">
+                            <Download className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </a>
+                        {f.uploadedBy === "client" && (
+                          <button
+                            className="p-1.5 rounded hover:bg-muted transition-colors"
+                            onClick={() => deleteFile.mutate({ id: f.id, portalAccessId, fileUrl: f.fileUrl })}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
           {/* Messages Tab */}
           <TabsContent value="messages" className="mt-4">
             <Card>
               <CardContent className="p-4 space-y-4">
-                {/* Message thread */}
                 <div className="max-h-96 overflow-y-auto space-y-3">
                   {messages.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8 text-sm">
@@ -522,18 +727,12 @@ function PortalDashboard({ clientId, contactName }: { clientId: string; contactN
                             </span>
                           </div>
                           <p className="text-sm">{msg.message}</p>
-                          {msg.deliverableId && (
-                            <p className="text-[10px] mt-1 opacity-60">
-                              Re: deliverable
-                            </p>
-                          )}
                         </div>
                       </div>
                     ))
                   )}
                 </div>
 
-                {/* Message input */}
                 <div className="flex gap-2 border-t pt-3">
                   <Textarea
                     placeholder="Type a message to your ONNIFY WORKS team..."
@@ -606,5 +805,11 @@ export default function Portal() {
     );
   }
 
-  return <PortalDashboard clientId={access.clientId} contactName={access.contactName} />;
+  return (
+    <PortalDashboard
+      clientId={access.clientId}
+      contactName={access.contactName}
+      portalAccessId={access.id}
+    />
+  );
 }

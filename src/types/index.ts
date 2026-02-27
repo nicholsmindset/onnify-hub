@@ -627,6 +627,7 @@ export interface PortalMessage {
   senderType: PortalMessageSender;
   senderName: string;
   message: string;
+  isRead: boolean;
   createdAt: string;
 }
 
@@ -638,7 +639,68 @@ export function mapPortalMessage(row: Record<string, unknown>): PortalMessage {
     senderType: row.sender_type as PortalMessageSender,
     senderName: row.sender_name as string,
     message: row.message as string,
+    isRead: (row.is_read as boolean) ?? false,
     createdAt: row.created_at as string,
+  };
+}
+
+// ============================================
+// CLIENT ONBOARDING TYPES
+// ============================================
+
+export interface Competitor {
+  name: string;
+  url: string;
+  notes: string;
+}
+
+export interface ClientOnboarding {
+  id: string;
+  portalAccessId: string;
+  currentStep: number;
+  completedAt?: string;
+  industry?: string;
+  websiteUrl?: string;
+  businessDescription?: string;
+  targetAudience?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontPreferences?: string;
+  brandVoice?: string;
+  brandDos?: string;
+  brandDonts?: string;
+  competitors: Competitor[];
+  goals?: string;
+  priority1?: string;
+  priority2?: string;
+  priority3?: string;
+  communicationStyle?: string;
+  additionalNotes?: string;
+}
+
+export function mapClientOnboarding(row: Record<string, unknown>): ClientOnboarding {
+  return {
+    id: row.id as string,
+    portalAccessId: row.portal_access_id as string,
+    currentStep: (row.current_step as number) ?? 1,
+    completedAt: row.completed_at as string | undefined,
+    industry: row.industry as string | undefined,
+    websiteUrl: row.website_url as string | undefined,
+    businessDescription: row.business_description as string | undefined,
+    targetAudience: row.target_audience as string | undefined,
+    primaryColor: row.primary_color as string | undefined,
+    secondaryColor: row.secondary_color as string | undefined,
+    fontPreferences: row.font_preferences as string | undefined,
+    brandVoice: row.brand_voice as string | undefined,
+    brandDos: row.brand_dos as string | undefined,
+    brandDonts: row.brand_donts as string | undefined,
+    competitors: (row.competitors as Competitor[]) ?? [],
+    goals: row.goals as string | undefined,
+    priority1: row.priority_1 as string | undefined,
+    priority2: row.priority_2 as string | undefined,
+    priority3: row.priority_3 as string | undefined,
+    communicationStyle: row.communication_style as string | undefined,
+    additionalNotes: row.additional_notes as string | undefined,
   };
 }
 

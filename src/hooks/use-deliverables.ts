@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Deliverable, mapDeliverable, toDeliverableRow } from "@/types";
 import { toast } from "sonner";
+import { deliverableStatusEmail } from "@/lib/email-templates";
 
 interface DeliverableFilters {
   assignee?: string;
@@ -91,9 +92,29 @@ export function useUpdateDeliverable() {
       if (error) throw error;
       return mapDeliverable(data as Record<string, unknown>);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
       toast.success("Deliverable updated");
+      if (variables.status) {
+        supabase.from("activity_logs").insert({
+          event_type: "status_change",
+          title: `${data.name} moved to ${data.status}`,
+          client_id: data.clientId || null,
+          client_name: data.clientName || null,
+          actor: "agency",
+          link_path: data.clientId ? `/clients/${data.clientId}` : "/deliverables",
+        }).then(() => {}).catch(() => {});
+        // Email client about the status change
+        if (data.clientId) {
+          supabase.functions.invoke("send-portal-email", {
+            body: {
+              clientId: data.clientId,
+              subject: `Project update: ${data.name}`,
+              html: deliverableStatusEmail({ deliverableName: data.name ?? "Deliverable", status: data.status ?? "" }),
+            },
+          }).catch(() => {});
+        }
+      }
     },
     onError: (error) => {
       toast.error(`Failed to update deliverable: ${error.message}`);

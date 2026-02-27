@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, UsersRound, FileCheck, Receipt, ListTodo,
-  Newspaper, Link2, Bell, BarChart3, Globe,
+  Newspaper, Link2, Bell, BarChart3, Globe, Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/use-profile";
+import { Link } from "react-router-dom";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -38,8 +40,12 @@ const moduleNavItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const { data: fullProfile } = useProfile(user?.id);
   const collapsed = state === "collapsed";
+
+  const avatarUrl = fullProfile?.avatarUrl;
+  const initials = (fullProfile?.fullName || profile?.fullName || user?.email || "U").charAt(0).toUpperCase();
 
   return (
     <Sidebar collapsible="icon">
@@ -102,19 +108,26 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground text-xs font-bold">
-              {profile?.fullName?.charAt(0)?.toUpperCase() ?? "U"}
-            </span>
+        <Link to="/settings" className="flex items-center gap-2 px-1 rounded-md hover:bg-sidebar-accent transition-colors py-1">
+          <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center overflow-hidden shrink-0">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-primary-foreground text-xs font-bold">{initials}</span>
+            )}
           </div>
-          {!collapsed && profile && (
+          {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{profile.fullName}</p>
-              <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile.role}</p>
+              <p className="text-xs font-medium truncate">
+                {fullProfile?.fullName || profile?.fullName || "Account"}
+              </p>
+              <p className="text-[10px] text-sidebar-foreground/50 truncate">
+                {fullProfile?.jobTitle || profile?.role || "Settings"}
+              </p>
             </div>
           )}
-        </div>
+          {!collapsed && <Settings className="h-3.5 w-3.5 text-sidebar-foreground/40 shrink-0" />}
+        </Link>
         <ThemeToggle />
       </SidebarFooter>
     </Sidebar>
