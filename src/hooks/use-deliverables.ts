@@ -58,7 +58,7 @@ export function useCreateDeliverable() {
       const row = toDeliverableRow(values);
       const { data: idData, error: idError } = await supabase.rpc("generate_deliverable_id");
       if (idError) throw idError;
-      (row as Record<string, unknown>).deliverable_id = idData;
+      (row as Record<string, unknown>).deliverable_code = idData;
       const { data, error } = await supabase
         .from("deliverables")
         .insert(row)
