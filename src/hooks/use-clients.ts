@@ -26,7 +26,7 @@ export function useClients(filters?: ClientFilters) {
       }
       if (filters?.search) {
         query = query.or(
-          `company_name.ilike.%${filters.search}%,client_code.ilike.%${filters.search}%`
+          `company_name.ilike.%${filters.search}%,client_id.ilike.%${filters.search}%`
         );
       }
 
@@ -62,7 +62,7 @@ export function useCreateClient() {
         p_market: values.market,
       });
       if (idError) throw idError;
-      (row as Record<string, unknown>).client_code = idData;
+      (row as Record<string, unknown>).client_id = idData;
       const { data, error } = await supabase
         .from("clients")
         .insert(row)

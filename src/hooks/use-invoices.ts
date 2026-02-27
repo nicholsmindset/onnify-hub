@@ -42,7 +42,7 @@ export function useCreateInvoice() {
       const row = toInvoiceRow(values);
       const { data: idData, error: idError } = await supabase.rpc("generate_invoice_id");
       if (idError) throw idError;
-      (row as Record<string, unknown>).invoice_code = idData;
+      (row as Record<string, unknown>).invoice_id = idData;
       const { data, error } = await supabase
         .from("invoices")
         .insert(row)
