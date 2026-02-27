@@ -4,6 +4,7 @@ import { useClients } from "@/hooks/use-clients";
 import { useUnreadPortalMessageCounts, usePortalMessages, useSendPortalMessage, useMarkMessagesRead } from "@/hooks/use-portal-messages";
 import { useClientOnboarding } from "@/hooks/use-onboarding";
 import { usePortalFiles, useUploadPortalFile, useDeletePortalFile, formatFileSize } from "@/hooks/use-portal-files";
+import { usePortalTeamMembers } from "@/hooks/use-portal-team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck } from "lucide-react";
+import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck, Users, Clock } from "lucide-react";
 import { PortalAccess, ClientOnboarding } from "@/types";
 import { toast } from "sonner";
 
@@ -394,6 +395,113 @@ function MessagesDialog({
   );
 }
 
+function TeamDialog({
+  portalAccessId,
+  accessToken,
+  clientName,
+}: {
+  portalAccessId: string;
+  accessToken: string;
+  clientName: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: members = [], isLoading } = usePortalTeamMembers(open ? portalAccessId : undefined);
+
+  const buildInviteUrl = (inviteToken: string) =>
+    `${window.location.origin}/portal?token=${accessToken}&member=${inviteToken}`;
+
+  const activeCount = members.filter((m) => m.acceptedAt).length;
+  const totalCount = members.length;
+
+  function memberTimeAgo(dateStr: string | null): string {
+    if (!dateStr) return "Never";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 2) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 relative" title="Team members">
+          <Users className="h-3.5 w-3.5" />
+          {totalCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary text-[9px] text-white flex items-center justify-center font-bold">
+              {totalCount}
+            </span>
+          )}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Team Members — {clientName}</DialogTitle>
+          <DialogDescription>
+            {totalCount === 0
+              ? "No team members invited yet."
+              : `${activeCount} active · ${totalCount - activeCount} pending`}
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2 mt-3">
+            {Array(3).fill(0).map((_, i) => <div key={i} className="h-14 rounded bg-muted animate-pulse" />)}
+          </div>
+        ) : members.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            The client hasn't invited any team members yet.
+          </p>
+        ) : (
+          <div className="rounded-lg border divide-y mt-3">
+            {members.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {m.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{m.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground">{m.email}</span>
+                    {m.acceptedAt ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 font-medium">Active</span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium flex items-center gap-0.5">
+                        <Clock className="h-2.5 w-2.5" /> Pending
+                      </span>
+                    )}
+                    {m.lastSeenAt && (
+                      <span className="text-[10px] text-muted-foreground">Last seen {memberTimeAgo(m.lastSeenAt)}</span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  title="Copy invite link"
+                  onClick={() => {
+                    navigator.clipboard.writeText(buildInviteUrl(m.inviteToken));
+                    toast.success("Invite link copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PortalAdmin() {
   const { data: accesses = [], isLoading } = usePortalAccessList();
   const { data: clients = [] } = useClients();
@@ -632,6 +740,7 @@ export default function PortalAdmin() {
                     <div className="flex items-center gap-1">
                       <FilesDialog portalAccessId={access.id} clientName={clientName} />
                       <ClientBriefDialog portalAccessId={access.id} clientName={clientName} />
+                      <TeamDialog portalAccessId={access.id} accessToken={access.accessToken} clientName={clientName} />
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
                         <Mail className="h-3.5 w-3.5" />
                       </Button>

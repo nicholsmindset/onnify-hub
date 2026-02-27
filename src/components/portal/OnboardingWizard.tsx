@@ -8,17 +8,148 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
 
 const TOTAL_STEPS = 6;
 const stepLabels = ["Welcome", "Your Business", "Brand Identity", "Competitors", "Goals", "Done!"];
 
+// ── Reusable chip components ─────────────────────────────────────────────────
+
+/** Multi-select pill buttons — selected pills are filled primary */
+function ChipGroup({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (val: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+        const active = selected.includes(opt);
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onToggle(opt)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors",
+              active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border hover:bg-muted text-foreground"
+            )}
+          >
+            {active && <Check className="h-3 w-3" />}
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Suggestion chips that append text to a string value */
+function SuggestionChips({
+  label,
+  suggestions,
+  value,
+  onChange,
+}: {
+  label: string;
+  suggestions: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const append = (s: string) => {
+    const trimmed = value.trim();
+    onChange(trimmed ? `${trimmed}\n${s}` : s);
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => append(s)}
+            className="px-2.5 py-1 rounded-full text-xs border border-dashed border-border hover:bg-muted hover:border-solid transition-colors text-muted-foreground hover:text-foreground"
+          >
+            + {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const INDUSTRIES = [
+  "Real Estate", "SaaS / Software", "Finance & Insurance",
+  "Healthcare & Wellness", "Retail & E-commerce", "Restaurants & F&B",
+  "Fitness & Sports", "Education & Training", "Construction & Trades",
+  "Marketing & Advertising", "Legal Services", "Consulting",
+  "Media & Entertainment", "Manufacturing", "Non-Profit", "Other",
+];
+
+const AUDIENCE_CHIPS = [
+  "B2B (other businesses)", "B2C (consumers)", "Small Businesses",
+  "Mid-Market", "Enterprise", "Millennials (25–40)", "Gen Z (18–24)",
+  "Professionals", "Local Community", "Homeowners", "Parents", "Students",
+];
+
+const FONT_STYLES = [
+  "Modern sans-serif — clean & contemporary",
+  "Classic serif — traditional & authoritative",
+  "Rounded & friendly — approachable & warm",
+  "Bold display — impactful & confident",
+  "Minimalist — simple & elegant",
+  "No preference — your recommendation",
+];
+
+const DOS_SUGGESTIONS = [
+  "Use our logo prominently",
+  "Highlight customer success stories",
+  "Keep copy concise and clear",
+  "Use high-quality images",
+  "Emphasize our core values",
+  "Show real people / faces",
+  "Use consistent brand colors",
+  "Focus on benefits over features",
+];
+
+const DONTS_SUGGESTIONS = [
+  "Avoid generic stock photos",
+  "Don't use corporate jargon",
+  "Never distort or alter the logo",
+  "Avoid cluttered layouts",
+  "Don't use competitor names",
+  "Avoid off-brand colors",
+  "Don't make unverified claims",
+  "Avoid overly formal language",
+];
+
+const GOAL_CHIPS = [
+  "Brand Awareness", "Lead Generation", "Sales Growth",
+  "Social Media Presence", "Website Traffic", "Customer Retention",
+  "Launch a New Product/Service", "Establish Credibility",
+  "Reach a New Market", "Content Marketing", "Email Marketing",
+  "Community Building",
+];
+
+// ── Wizard state ─────────────────────────────────────────────────────────────
+
 interface WizardState {
   industry: string;
   websiteUrl: string;
   businessDescription: string;
-  targetAudience: string;
+  targetAudience: string;        // comma-joined chip selections + custom
   primaryColor: string;
   secondaryColor: string;
   fontPreferences: string;
@@ -26,7 +157,7 @@ interface WizardState {
   brandDos: string;
   brandDonts: string;
   competitors: Competitor[];
-  goals: string;
+  goals: string;                 // comma-joined chip selections
   priority1: string;
   priority2: string;
   priority3: string;
@@ -34,7 +165,7 @@ interface WizardState {
   additionalNotes: string;
 }
 
-function stateFromOnboarding(existing: Parameters<typeof useClientOnboarding>[0] extends string | undefined ? ReturnType<typeof useClientOnboarding>["data"] : never): WizardState {
+function stateFromOnboarding(existing: ReturnType<typeof useClientOnboarding>["data"]): WizardState {
   return {
     industry: existing?.industry ?? "",
     websiteUrl: existing?.websiteUrl ?? "",
@@ -56,6 +187,8 @@ function stateFromOnboarding(existing: Parameters<typeof useClientOnboarding>[0]
   };
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function OnboardingWizard({
   portalAccessId,
   contactName,
@@ -70,11 +203,9 @@ export function OnboardingWizard({
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<WizardState>(() => stateFromOnboarding(undefined));
 
-  // Sync form + step from existing data once loaded
   useEffect(() => {
     if (existing) {
       setForm(stateFromOnboarding(existing));
-      // Resume from saved step (but cap at step 5 so they re-confirm submission)
       if (existing.currentStep > 1 && existing.currentStep <= 5) {
         setStep(existing.currentStep);
       }
@@ -83,6 +214,28 @@ export function OnboardingWizard({
 
   const update = (key: keyof WizardState, value: unknown) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Audience chips helpers (stored as comma-separated string)
+  const audienceTags = form.targetAudience
+    ? form.targetAudience.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const toggleAudience = (tag: string) => {
+    const updated = audienceTags.includes(tag)
+      ? audienceTags.filter((t) => t !== tag)
+      : [...audienceTags, tag];
+    update("targetAudience", updated.join(", "));
+  };
+
+  // Goal chips helpers (stored as comma-separated string)
+  const goalTags = form.goals
+    ? form.goals.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const toggleGoal = (tag: string) => {
+    const updated = goalTags.includes(tag)
+      ? goalTags.filter((t) => t !== tag)
+      : [...goalTags, tag];
+    update("goals", updated.join(", "));
+  };
 
   const progressPct = ((step - 1) / (TOTAL_STEPS - 1)) * 100;
 
@@ -125,7 +278,7 @@ export function OnboardingWizard({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header with progress */}
+      {/* Header */}
       <div className="border-b bg-card px-6 py-4 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-3 mb-3">
@@ -151,21 +304,21 @@ export function OnboardingWizard({
       <div className="flex-1 flex items-start justify-center p-6 pb-12">
         <div className="w-full max-w-2xl space-y-8">
 
-          {/* ── Step 1: Welcome ─────────────────────────────── */}
+          {/* ── Step 1: Welcome ──────────────────────────────────────── */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-display font-bold">Welcome, {contactName}! 👋</h2>
                 <p className="text-muted-foreground mt-2 leading-relaxed">
-                  We're thrilled to have you on board. To hit the ground running, we'd love to learn everything about your brand — so we can create work you're truly proud of.
+                  We're thrilled to have you on board. Take 5 minutes to fill this in — mostly clicks, no essay writing — so we can hit the ground running.
                 </p>
               </div>
               <div className="grid gap-3">
                 {[
-                  { icon: "🏢", title: "About Your Business", desc: "Industry, website, and what you do" },
-                  { icon: "🎨", title: "Brand Identity", desc: "Colors, fonts, brand voice, do's and don'ts" },
-                  { icon: "🏆", title: "Competitors", desc: "Who else is in your space?" },
-                  { icon: "🎯", title: "Goals & Expectations", desc: "What success looks like for you" },
+                  { icon: "🏢", title: "About Your Business", desc: "Pick your industry & audience" },
+                  { icon: "🎨", title: "Brand Identity", desc: "Colors, style, tone" },
+                  { icon: "🏆", title: "Competitors", desc: "Optional — who else is in your space" },
+                  { icon: "🎯", title: "Goals", desc: "Select what matters most to you" },
                 ].map((item) => (
                   <div key={item.title} className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border">
                     <span className="text-2xl leading-none mt-0.5">{item.icon}</span>
@@ -177,65 +330,80 @@ export function OnboardingWizard({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 border">
-                ✅ Takes about 5–10 minutes &nbsp;·&nbsp; ✅ Your progress saves automatically &nbsp;·&nbsp; ✅ You can return anytime
+                ✅ Mostly click-to-select &nbsp;·&nbsp; ✅ Takes about 5 minutes &nbsp;·&nbsp; ✅ Progress saves automatically
               </p>
             </div>
           )}
 
-          {/* ── Step 2: About Your Business ────────────────── */}
+          {/* ── Step 2: About Your Business ──────────────────────────── */}
           {step === 2 && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-display font-bold">About Your Business</h2>
                 <p className="text-muted-foreground text-sm mt-1">Help us understand what you do and who you serve.</p>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
+                {/* Industry — Select */}
                 <div className="space-y-1.5">
-                  <Label>Industry</Label>
-                  <Input
-                    placeholder="e.g. Real Estate, SaaS, F&B, Insurance"
-                    value={form.industry}
-                    onChange={(e) => update("industry", e.target.value)}
-                  />
+                  <Label>Industry <span className="text-destructive">*</span></Label>
+                  <Select value={form.industry} onValueChange={(v) => update("industry", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your industry…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDUSTRIES.map((ind) => (
+                        <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* Website URL */}
                 <div className="space-y-1.5">
-                  <Label>Website URL</Label>
+                  <Label>Website URL <span className="text-xs text-muted-foreground">(optional)</span></Label>
                   <Input
                     placeholder="https://yourcompany.com"
                     value={form.websiteUrl}
                     onChange={(e) => update("websiteUrl", e.target.value)}
                   />
                 </div>
+
+                {/* What does your business do — short textarea */}
                 <div className="space-y-1.5">
-                  <Label>What does your business do?</Label>
+                  <Label>What do you do? <span className="text-xs text-muted-foreground">(1–2 sentences is fine)</span></Label>
                   <Textarea
-                    placeholder="Briefly describe your products or services and what makes you unique..."
-                    rows={3}
+                    placeholder="e.g. We help real estate agents close more deals with professional branding and marketing content."
+                    rows={2}
                     value={form.businessDescription}
                     onChange={(e) => update("businessDescription", e.target.value)}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Target Audience</Label>
-                  <Textarea
-                    placeholder="Who are your ideal customers? (demographics, job titles, industries, pain points...)"
-                    rows={2}
-                    value={form.targetAudience}
-                    onChange={(e) => update("targetAudience", e.target.value)}
+
+                {/* Target Audience — chip multi-select */}
+                <div className="space-y-2">
+                  <Label>Target Audience <span className="text-xs text-muted-foreground">(select all that apply)</span></Label>
+                  <ChipGroup
+                    options={AUDIENCE_CHIPS}
+                    selected={audienceTags}
+                    onToggle={toggleAudience}
                   />
+                  {audienceTags.length > 0 && (
+                    <p className="text-xs text-muted-foreground">Selected: {audienceTags.join(" · ")}</p>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Step 3: Brand Identity ─────────────────────── */}
+          {/* ── Step 3: Brand Identity ────────────────────────────────── */}
           {step === 3 && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-display font-bold">Brand Identity</h2>
                 <p className="text-muted-foreground text-sm mt-1">Your brand's visual and verbal personality.</p>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
+                {/* Colors */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Primary Color</Label>
@@ -270,19 +438,28 @@ export function OnboardingWizard({
                     </div>
                   </div>
                 </div>
+
+                {/* Font Style — Select */}
                 <div className="space-y-1.5">
-                  <Label>Font Preferences</Label>
-                  <Input
-                    placeholder="e.g. Modern sans-serif, classic serif, prefer Google Fonts"
-                    value={form.fontPreferences}
-                    onChange={(e) => update("fontPreferences", e.target.value)}
-                  />
+                  <Label>Font Style Preference</Label>
+                  <Select value={form.fontPreferences} onValueChange={(v) => update("fontPreferences", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a font style…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_STYLES.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* Brand Voice — Select */}
                 <div className="space-y-1.5">
                   <Label>Brand Voice</Label>
                   <Select value={form.brandVoice} onValueChange={(v) => update("brandVoice", v)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select your brand's tone..." />
+                      <SelectValue placeholder="Select your brand's tone…" />
                     </SelectTrigger>
                     <SelectContent>
                       {["Professional", "Casual & Approachable", "Bold & Confident", "Playful & Fun", "Authoritative", "Warm & Friendly"].map((v) => (
@@ -291,37 +468,64 @@ export function OnboardingWizard({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Brand Do's ✅</Label>
+
+                {/* Brand Dos — suggestion chips + textarea */}
+                <div className="space-y-2">
+                  <Label>Brand Do's ✅ <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                  <SuggestionChips
+                    label="Quick add:"
+                    suggestions={DOS_SUGGESTIONS}
+                    value={form.brandDos}
+                    onChange={(v) => update("brandDos", v)}
+                  />
+                  {form.brandDos && (
                     <Textarea
-                      placeholder="Things we should always include or emphasize..."
-                      rows={3}
+                      rows={2}
                       value={form.brandDos}
                       onChange={(e) => update("brandDos", e.target.value)}
+                      placeholder="Things we should always include or emphasize…"
+                      className="text-sm"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Brand Don'ts ❌</Label>
+                  )}
+                  {!form.brandDos && (
+                    <p className="text-xs text-muted-foreground italic">Click suggestions above or skip this field.</p>
+                  )}
+                </div>
+
+                {/* Brand Don'ts — suggestion chips + textarea */}
+                <div className="space-y-2">
+                  <Label>Brand Don'ts ❌ <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                  <SuggestionChips
+                    label="Quick add:"
+                    suggestions={DONTS_SUGGESTIONS}
+                    value={form.brandDonts}
+                    onChange={(v) => update("brandDonts", v)}
+                  />
+                  {form.brandDonts && (
                     <Textarea
-                      placeholder="Things we should avoid at all times..."
-                      rows={3}
+                      rows={2}
                       value={form.brandDonts}
                       onChange={(e) => update("brandDonts", e.target.value)}
+                      placeholder="Things we should avoid at all times…"
+                      className="text-sm"
                     />
-                  </div>
+                  )}
+                  {!form.brandDonts && (
+                    <p className="text-xs text-muted-foreground italic">Click suggestions above or skip this field.</p>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Step 4: Competitors ────────────────────────── */}
+          {/* ── Step 4: Competitors ───────────────────────────────────── */}
           {step === 4 && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-display font-bold">Competitors</h2>
                 <p className="text-muted-foreground text-sm mt-1">
-                  List up to 5 competitors so we can position you strategically. This step is optional.
+                  List up to 5 competitors so we can position you strategically.{" "}
+                  <span className="font-medium">This step is optional — feel free to skip.</span>
                 </p>
               </div>
               <div className="space-y-3">
@@ -350,7 +554,7 @@ export function OnboardingWizard({
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Website</Label>
+                          <Label className="text-xs">Website <span className="text-muted-foreground">(optional)</span></Label>
                           <Input
                             placeholder="https://"
                             className="text-sm"
@@ -360,10 +564,9 @@ export function OnboardingWizard({
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Notes (what do you like or dislike?)</Label>
-                        <Textarea
-                          placeholder="e.g. Great branding, but their pricing is unclear..."
-                          rows={2}
+                        <Label className="text-xs">What do you like or dislike about them? <span className="text-muted-foreground">(optional)</span></Label>
+                        <Input
+                          placeholder="e.g. Great branding, but pricing is unclear"
                           className="text-sm"
                           value={comp.notes}
                           onChange={(e) => updateCompetitor(idx, "notes", e.target.value)}
@@ -373,9 +576,9 @@ export function OnboardingWizard({
                   </Card>
                 ))}
                 {form.competitors.length === 0 && (
-                  <p className="text-center text-muted-foreground text-sm py-4">
-                    No competitors added yet. You can skip this step if you'd like.
-                  </p>
+                  <div className="text-center text-muted-foreground text-sm py-6 border-2 border-dashed rounded-lg">
+                    No competitors added. You can skip this step.
+                  </div>
                 )}
                 {form.competitors.length < 5 && (
                   <Button variant="outline" className="w-full gap-2" onClick={addCompetitor}>
@@ -386,45 +589,52 @@ export function OnboardingWizard({
             </div>
           )}
 
-          {/* ── Step 5: Goals ─────────────────────────────── */}
+          {/* ── Step 5: Goals ─────────────────────────────────────────── */}
           {step === 5 && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-display font-bold">Goals & Expectations</h2>
                 <p className="text-muted-foreground text-sm mt-1">What does success look like for you?</p>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Main Goals</Label>
-                  <Textarea
-                    placeholder="What do you want to achieve with ONNIFY WORKS? (brand awareness, lead generation, sales growth, etc.)"
-                    rows={3}
-                    value={form.goals}
-                    onChange={(e) => update("goals", e.target.value)}
+              <div className="space-y-5">
+                {/* Goals — chip multi-select */}
+                <div className="space-y-2">
+                  <Label>What are your main goals? <span className="text-xs text-muted-foreground">(select all that apply)</span></Label>
+                  <ChipGroup
+                    options={GOAL_CHIPS}
+                    selected={goalTags}
+                    onToggle={toggleGoal}
                   />
+                  {goalTags.length > 0 && (
+                    <p className="text-xs text-muted-foreground">Selected: {goalTags.join(" · ")}</p>
+                  )}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Top 3 Priorities</Label>
+
+                {/* Top 3 priorities */}
+                <div className="space-y-2">
+                  <Label>Top 3 Priorities <span className="text-xs text-muted-foreground">(optional — most important first)</span></Label>
                   <div className="space-y-2">
                     <Input
-                      placeholder="Priority #1 — most important"
+                      placeholder="#1 — e.g. More Instagram followers"
                       value={form.priority1}
                       onChange={(e) => update("priority1", e.target.value)}
                     />
                     <Input
-                      placeholder="Priority #2"
+                      placeholder="#2 — e.g. Launch email newsletter"
                       value={form.priority2}
                       onChange={(e) => update("priority2", e.target.value)}
                     />
                     <Input
-                      placeholder="Priority #3"
+                      placeholder="#3 — e.g. Refresh our website copy"
                       value={form.priority3}
                       onChange={(e) => update("priority3", e.target.value)}
                     />
                   </div>
                 </div>
+
+                {/* Communication style */}
                 <div className="space-y-1.5">
-                  <Label>Preferred Communication Style</Label>
+                  <Label>Preferred Update Style</Label>
                   <Select value={form.communicationStyle} onValueChange={(v) => update("communicationStyle", v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="How do you prefer to receive updates?" />
@@ -432,15 +642,17 @@ export function OnboardingWizard({
                     <SelectContent>
                       <SelectItem value="Detailed updates">Detailed updates — I like to know everything</SelectItem>
                       <SelectItem value="High-level summaries">High-level summaries — just the key highlights</SelectItem>
-                      <SelectItem value="Only when action needed">Only when action is needed from me</SelectItem>
+                      <SelectItem value="Only when action needed">Only ping me when you need something from me</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Anything else — small optional field */}
                 <div className="space-y-1.5">
-                  <Label>Anything else we should know?</Label>
+                  <Label>Anything else we should know? <span className="text-xs text-muted-foreground">(optional)</span></Label>
                   <Textarea
-                    placeholder="Any concerns, preferences, deadlines, or context that would help us serve you better..."
-                    rows={3}
+                    placeholder="Any deadlines, preferences, or context that would help us serve you better…"
+                    rows={2}
                     value={form.additionalNotes}
                     onChange={(e) => update("additionalNotes", e.target.value)}
                   />
@@ -449,7 +661,7 @@ export function OnboardingWizard({
             </div>
           )}
 
-          {/* ── Step 6: Done! ─────────────────────────────── */}
+          {/* ── Step 6: Done! ──────────────────────────────────────────── */}
           {step === 6 && (
             <div className="text-center space-y-6 py-10">
               <div className="flex justify-center">
@@ -460,7 +672,7 @@ export function OnboardingWizard({
               <div>
                 <h2 className="text-2xl font-display font-bold">You're all set, {contactName}!</h2>
                 <p className="text-muted-foreground mt-2 max-w-md mx-auto leading-relaxed">
-                  Thank you for completing your onboarding brief. Your team has been notified and will review your information right away.
+                  Thank you for completing your brief. Your team has been notified and will review your information right away.
                 </p>
               </div>
               <div className="flex justify-center">
@@ -472,7 +684,7 @@ export function OnboardingWizard({
             </div>
           )}
 
-          {/* Navigation buttons */}
+          {/* Navigation */}
           <div className={`flex mt-6 ${step > 1 && step < 6 ? "justify-between" : "justify-end"}`}>
             {step > 1 && step < 6 && (
               <Button variant="outline" onClick={() => setStep((s) => s - 1)} className="gap-1">
@@ -485,11 +697,12 @@ export function OnboardingWizard({
               </Button>
             ) : (
               <Button onClick={handleNext} disabled={upsert.isPending} className="gap-1">
-                {upsert.isPending ? "Saving..." : step === 5 ? "Submit Brief" : "Next"}
+                {upsert.isPending ? "Saving…" : step === 5 ? "Submit Brief" : step === 4 ? "Next →" : "Next"}
                 {!upsert.isPending && step < 5 && <ChevronRight className="h-4 w-4" />}
               </Button>
             )}
           </div>
+
         </div>
       </div>
     </div>

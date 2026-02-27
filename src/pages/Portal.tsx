@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePortalAccessByToken } from "@/hooks/use-portal";
 import { useDeliverables } from "@/hooks/use-deliverables";
@@ -10,6 +10,10 @@ import { useClientOnboarding } from "@/hooks/use-onboarding";
 import { OnboardingWizard } from "@/components/portal/OnboardingWizard";
 import { useUpdateDeliverable } from "@/hooks/use-deliverables";
 import { usePortalFiles, useUploadPortalFile, useDeletePortalFile, formatFileSize } from "@/hooks/use-portal-files";
+import {
+  usePortalTeamMembers, useInviteTeamMember, useRemoveTeamMember,
+  useValidateInviteToken, useUpdateMemberLastSeen,
+} from "@/hooks/use-portal-team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,10 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
 import {
   FileCheck, Receipt, ListTodo, LogIn, Building2,
   CheckCircle, XCircle, MessageSquare, Send, ThumbsUp,
   ExternalLink, Circle, Paperclip, Upload, Download, Trash2, File, Phone,
+  Users, UserPlus, Copy, Check, Clock,
 } from "lucide-react";
 import { Deliverable, DeliverableStatus, InvoiceStatus } from "@/types";
 import { toast } from "sonner";
@@ -339,14 +345,164 @@ function WhatsNew({
   );
 }
 
+function TeamTab({
+  portalAccessId,
+  accessToken,
+}: {
+  portalAccessId: string;
+  accessToken: string;
+}) {
+  const { data: members = [], isLoading } = usePortalTeamMembers(portalAccessId);
+  const inviteMember = useInviteTeamMember();
+  const removeMember = useRemoveTeamMember();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const buildInviteUrl = (inviteToken: string) =>
+    `${window.location.origin}/portal?token=${accessToken}&member=${inviteToken}`;
+
+  const copyInviteLink = (member: ReturnType<typeof usePortalTeamMembers>["data"][0]) => {
+    if (!member) return;
+    navigator.clipboard.writeText(buildInviteUrl(member.inviteToken));
+    setCopiedId(member.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleInvite = () => {
+    if (!name.trim() || !email.trim()) return;
+    inviteMember.mutate(
+      { portalAccessId, name: name.trim(), email: email.trim() },
+      {
+        onSuccess: () => {
+          setName("");
+          setEmail("");
+        },
+      }
+    );
+  };
+
+  if (isLoading) {
+    return <div className="space-y-2">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Invite form */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <UserPlus className="h-4 w-4" /> Invite a Team Member
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            They'll get a unique link to access this portal.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Name</Label>
+              <Input
+                placeholder="Jane Smith"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Email</Label>
+              <Input
+                type="email"
+                placeholder="jane@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <Button
+            className="w-full gap-2"
+            onClick={handleInvite}
+            disabled={!name.trim() || !email.trim() || inviteMember.isPending}
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            {inviteMember.isPending ? "Creating invite..." : "Generate Invite Link"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Team list */}
+      {members.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No team members invited yet.</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-card divide-y">
+          {members.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-muted-foreground">
+                  {m.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{m.name}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-muted-foreground">{m.email}</span>
+                  {m.acceptedAt ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 font-medium">Active</span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium flex items-center gap-0.5">
+                      <Clock className="h-2.5 w-2.5" /> Pending
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Copy invite link"
+                  onClick={() => copyInviteLink(m)}
+                >
+                  {copiedId === m.id ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive"
+                  title="Remove member"
+                  onClick={() => removeMember.mutate({ id: m.id, portalAccessId })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PortalDashboard({
   clientId,
   contactName,
   portalAccessId,
+  accessToken,
+  memberToken,
 }: {
   clientId: string;
   contactName: string;
   portalAccessId: string;
+  accessToken: string;
+  memberToken?: string;
 }) {
   const { data: client, isLoading: loadingClient } = useClient(clientId);
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId });
@@ -359,6 +515,22 @@ function PortalDashboard({
   const deleteFile = useDeletePortalFile();
   const sendMessage = useSendPortalMessage();
   const markRead = useMarkMessagesRead();
+  const updateLastSeen = useUpdateMemberLastSeen();
+
+  // Resolve member context when a member token is present
+  const { data: activeMember } = useValidateInviteToken(memberToken);
+
+  // The display name: member's name if in member context, otherwise the contact name
+  const displayName = activeMember?.name || contactName;
+  const isOwner = !memberToken; // owner = no member token in URL
+
+  // Update member's last_seen_at on portal load
+  useEffect(() => {
+    if (activeMember?.id) {
+      updateLastSeen.mutate(activeMember.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMember?.id]);
 
   const [messageText, setMessageText] = useState("");
   const [activeTab, setActiveTab] = useState("deliverables");
@@ -382,7 +554,7 @@ function PortalDashboard({
       {
         clientId,
         senderType: "client",
-        senderName: contactName,
+        senderName: displayName,
         message: messageText,
       },
       {
@@ -394,13 +566,13 @@ function PortalDashboard({
     );
   };
 
-  // Show onboarding wizard fullscreen until completed
-  const showWizard = !loadingOnboarding && !onboarding?.completedAt && !onboardingDone;
+  // Show onboarding wizard fullscreen until completed (only for owner, not team members)
+  const showWizard = isOwner && !loadingOnboarding && !onboarding?.completedAt && !onboardingDone;
   if (showWizard) {
     return (
       <OnboardingWizard
         portalAccessId={portalAccessId}
-        contactName={contactName}
+        contactName={displayName}
         onComplete={() => setOnboardingDone(true)}
       />
     );
@@ -442,7 +614,10 @@ function PortalDashboard({
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{client?.companyName}</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">({contactName})</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">({displayName})</span>
+              {!isOwner && (
+                <Badge variant="outline" className="text-xs">Team Member</Badge>
+              )}
             </div>
             <a
               href={`mailto:team@onnify.com?subject=${encodeURIComponent(`Meeting Request – ${client?.companyName ?? ""}`)}&body=${encodeURIComponent(`Hi,\n\nI'd like to schedule a call to discuss the ${client?.companyName ?? ""} project.\n\nPlease let me know your availability.\n\nBest,\n${contactName}`)}`}
@@ -535,6 +710,12 @@ function PortalDashboard({
                 </span>
               )}
             </TabsTrigger>
+            {isOwner && (
+              <TabsTrigger value="team" className="gap-1">
+                <Users className="h-3.5 w-3.5" />
+                Team
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Deliverables — Phase 3 Kanban board */}
@@ -697,6 +878,13 @@ function PortalDashboard({
             </div>
           </TabsContent>
 
+          {/* Team Tab — owner only */}
+          {isOwner && (
+            <TabsContent value="team" className="mt-4">
+              <TeamTab portalAccessId={portalAccessId} accessToken={accessToken} />
+            </TabsContent>
+          )}
+
           {/* Messages Tab */}
           <TabsContent value="messages" className="mt-4">
             <Card>
@@ -767,6 +955,7 @@ function PortalDashboard({
 export default function Portal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tokenParam = searchParams.get("token");
+  const memberParam = searchParams.get("member") || undefined;
   const [enteredToken, setEnteredToken] = useState(tokenParam || "");
 
   const token = enteredToken || tokenParam || "";
@@ -810,6 +999,8 @@ export default function Portal() {
       clientId={access.clientId}
       contactName={access.contactName}
       portalAccessId={access.id}
+      accessToken={access.accessToken}
+      memberToken={memberParam}
     />
   );
 }
