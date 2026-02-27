@@ -300,9 +300,15 @@ END $$;
 
 -- ============================================
 -- GRANT TABLE ACCESS TO ANON + AUTHENTICATED
--- Run this if you see "permission denied for table X"
+-- Required for all tables when using the anon key.
+-- The service role JWT bypasses grants; the anon key does not.
 -- ============================================
 
+GRANT ALL ON TABLE public.clients             TO anon, authenticated;
+GRANT ALL ON TABLE public.deliverables        TO anon, authenticated;
+GRANT ALL ON TABLE public.invoices            TO anon, authenticated;
+GRANT ALL ON TABLE public.tasks               TO anon, authenticated;
+GRANT ALL ON TABLE public.portal_access       TO anon, authenticated;
 GRANT ALL ON TABLE public.content_items       TO anon, authenticated;
 GRANT ALL ON TABLE public.ghl_connections     TO anon, authenticated;
 GRANT ALL ON TABLE public.ghl_sync_logs       TO anon, authenticated;
