@@ -42,7 +42,7 @@ export function useCreateTask() {
       const row = toTaskRow(values);
       const { data: idData, error: idError } = await supabase.rpc("generate_task_id");
       if (idError) throw idError;
-      (row as Record<string, unknown>).task_id = idData;
+      (row as Record<string, unknown>).task_code = idData;
       const { data, error } = await supabase
         .from("tasks")
         .insert(row)

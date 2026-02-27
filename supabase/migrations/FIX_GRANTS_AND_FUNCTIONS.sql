@@ -32,17 +32,17 @@ END $$;
 -- ============================================
 -- 2. Create / replace ID-generation functions
 --    using actual column names from the DB:
---      clients.client_id
---      deliverables.deliverable_id
---      invoices.invoice_id
---      tasks.task_id
+--      clients.client_code
+--      deliverables.deliverable_code
+--      invoices.invoice_code
+--      tasks.task_code
 -- ============================================
 
 CREATE OR REPLACE FUNCTION public.generate_client_id(p_market text)
 RETURNS text AS $$
 DECLARE next_num integer;
 BEGIN
-  SELECT COALESCE(MAX(CAST(SUBSTRING(client_id FROM '[0-9]+$') AS integer)), 0) + 1
+  SELECT COALESCE(MAX(CAST(SUBSTRING(client_code FROM '[0-9]+$') AS integer)), 0) + 1
   INTO next_num FROM public.clients WHERE market = p_market;
   RETURN 'OW-' || p_market || '-' || LPAD(next_num::text, 3, '0');
 END;
@@ -52,7 +52,7 @@ CREATE OR REPLACE FUNCTION public.generate_deliverable_id()
 RETURNS text AS $$
 DECLARE next_num integer;
 BEGIN
-  SELECT COALESCE(MAX(CAST(SUBSTRING(deliverable_id FROM '[0-9]+$') AS integer)), 0) + 1
+  SELECT COALESCE(MAX(CAST(SUBSTRING(deliverable_code FROM '[0-9]+$') AS integer)), 0) + 1
   INTO next_num FROM public.deliverables;
   RETURN 'DEL-' || LPAD(next_num::text, 3, '0');
 END;
@@ -62,9 +62,9 @@ CREATE OR REPLACE FUNCTION public.generate_invoice_id()
 RETURNS text AS $$
 DECLARE next_num integer;
 BEGIN
-  SELECT COALESCE(MAX(CAST(SUBSTRING(invoice_id FROM '[0-9]+$') AS integer)), 0) + 1
+  SELECT COALESCE(MAX(CAST(SUBSTRING(invoice_code FROM '[0-9]+$') AS integer)), 0) + 1
   INTO next_num FROM public.invoices
-  WHERE invoice_id LIKE 'INV-' || EXTRACT(YEAR FROM now())::text || '%';
+  WHERE invoice_code LIKE 'INV-' || EXTRACT(YEAR FROM now())::text || '%';
   RETURN 'INV-' || EXTRACT(YEAR FROM now())::text || '-' || LPAD(next_num::text, 3, '0');
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
@@ -73,7 +73,7 @@ CREATE OR REPLACE FUNCTION public.generate_task_id()
 RETURNS text AS $$
 DECLARE next_num integer;
 BEGIN
-  SELECT COALESCE(MAX(CAST(SUBSTRING(task_id FROM '[0-9]+$') AS integer)), 0) + 1
+  SELECT COALESCE(MAX(CAST(SUBSTRING(task_code FROM '[0-9]+$') AS integer)), 0) + 1
   INTO next_num FROM public.tasks;
   RETURN 'TSK-' || LPAD(next_num::text, 3, '0');
 END;
@@ -84,7 +84,19 @@ GRANT EXECUTE ON FUNCTION public.generate_client_id(text)  TO anon, authenticate
 GRANT EXECUTE ON FUNCTION public.generate_deliverable_id()  TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_invoice_id()      TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_task_id()         TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.generate_content_id()      TO anon, authenticated;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.routines
+    WHERE routine_schema = 'public' AND routine_name = 'generate_content_id'
+  ) THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.generate_content_id() TO anon, authenticated';
+    RAISE NOTICE 'Granted execute on generate_content_id';
+  ELSE
+    RAISE NOTICE 'generate_content_id does not exist — skipped';
+  END IF;
+END $$;
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

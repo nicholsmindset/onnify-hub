@@ -88,7 +88,7 @@ export interface Task {
 export function mapClient(row: Record<string, unknown>): Client {
   return {
     id: row.id as string,
-    clientId: row.client_id as string,
+    clientId: row.client_code as string,
     companyName: row.company_name as string,
     market: row.market as Market,
     industry: row.industry as string,
@@ -107,7 +107,7 @@ export function mapClient(row: Record<string, unknown>): Client {
 export function mapDeliverable(row: Record<string, unknown>): Deliverable {
   return {
     id: row.id as string,
-    deliverableId: row.deliverable_id as string,
+    deliverableId: row.deliverable_code as string,
     clientId: row.client_id as string,
     clientName: row.client_name as string | undefined,
     serviceType: row.service_type as ServiceType,
@@ -120,7 +120,7 @@ export function mapDeliverable(row: Record<string, unknown>): Deliverable {
     deliveryDate: row.delivery_date as string | undefined,
     fileLink: row.file_link as string | undefined,
     clientApproved: row.client_approved as boolean,
-    market: row.market as Market,
+    market: (row.market as Market) ?? "SG",
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
   };
@@ -129,17 +129,17 @@ export function mapDeliverable(row: Record<string, unknown>): Deliverable {
 export function mapInvoice(row: Record<string, unknown>): Invoice {
   return {
     id: row.id as string,
-    invoiceId: row.invoice_id as string,
+    invoiceId: row.invoice_code as string,
     clientId: row.client_id as string,
     clientName: row.client_name as string | undefined,
     month: row.month as string,
     amount: Number(row.amount),
     currency: row.currency as Currency,
     servicesBilled: row.services_billed as string,
-    invoiceFileLink: row.invoice_file_link as string | undefined,
+    invoiceFileLink: row.file_link as string | undefined,
     status: row.status as InvoiceStatus,
     paymentDate: row.payment_date as string | undefined,
-    market: row.market as Market,
+    market: (row.market as Market) ?? "SG",
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
   };
@@ -148,7 +148,7 @@ export function mapInvoice(row: Record<string, unknown>): Invoice {
 export function mapTask(row: Record<string, unknown>): Task {
   return {
     id: row.id as string,
-    taskId: row.task_id as string,
+    taskId: row.task_code as string,
     name: row.name as string,
     clientId: row.client_id as string | undefined,
     clientName: row.client_name as string | undefined,
@@ -193,7 +193,6 @@ export function toDeliverableRow(data: Partial<Deliverable>) {
   if (data.deliveryDate !== undefined) row.delivery_date = data.deliveryDate || null;
   if (data.fileLink !== undefined) row.file_link = data.fileLink || null;
   if (data.clientApproved !== undefined) row.client_approved = data.clientApproved;
-  if (data.market !== undefined) row.market = data.market;
   return row;
 }
 
@@ -204,10 +203,9 @@ export function toInvoiceRow(data: Partial<Invoice>) {
   if (data.amount !== undefined) row.amount = data.amount;
   if (data.currency !== undefined) row.currency = data.currency;
   if (data.servicesBilled !== undefined) row.services_billed = data.servicesBilled;
-  if (data.invoiceFileLink !== undefined) row.invoice_file_link = data.invoiceFileLink || null;
+  if (data.invoiceFileLink !== undefined) row.file_link = data.invoiceFileLink || null;
   if (data.status !== undefined) row.status = data.status;
   if (data.paymentDate !== undefined) row.payment_date = data.paymentDate || null;
-  if (data.market !== undefined) row.market = data.market;
   return row;
 }
 
