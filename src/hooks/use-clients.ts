@@ -58,15 +58,11 @@ export function useCreateClient() {
   return useMutation({
     mutationFn: async (values: Partial<Client>) => {
       const row = toClientRow(values);
-      // Auto-generate client_id using the DB function
-      if (values.market) {
-        const { data: idData } = await supabase.rpc("generate_client_id", {
-          p_market: values.market,
-        });
-        if (idData) {
-          (row as Record<string, unknown>).client_id = idData;
-        }
-      }
+      const { data: idData, error: idError } = await supabase.rpc("generate_client_id", {
+        p_market: values.market,
+      });
+      if (idError) throw idError;
+      (row as Record<string, unknown>).client_id = idData;
       const { data, error } = await supabase
         .from("clients")
         .insert(row)
