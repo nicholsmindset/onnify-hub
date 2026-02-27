@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check } from "lucide-react";
@@ -125,6 +125,7 @@ export default function PortalAdmin() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create Portal Access</DialogTitle>
+              <DialogDescription>Grant a client contact access to their portal.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
@@ -159,6 +160,7 @@ export default function PortalAdmin() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Portal Access Created</DialogTitle>
+            <DialogDescription>Share the portal link with the client contact.</DialogDescription>
           </DialogHeader>
           {createdAccess && (
             <div className="space-y-4 mt-2">

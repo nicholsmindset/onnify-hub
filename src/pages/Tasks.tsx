@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TaskForm } from "@/components/forms/TaskForm";
 import { Plus } from "lucide-react";
@@ -182,6 +182,7 @@ export default function Tasks() {
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Task</DialogTitle>
+              <DialogDescription>Create a new task and assign it to a team member.</DialogDescription>
             </DialogHeader>
             <TaskForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
           </DialogContent>

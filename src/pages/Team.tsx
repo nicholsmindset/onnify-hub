@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Clock, FileCheck, ListTodo } from "lucide-react";
 import { TeamMember, TeamRole } from "@/types";
@@ -172,6 +172,7 @@ export default function Team() {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Add Team Member</DialogTitle>
+              <DialogDescription>Add a new member to your team.</DialogDescription>
             </DialogHeader>
             {memberForm(false)}
           </DialogContent>
@@ -272,6 +273,7 @@ export default function Team() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogDescription>Update this team member's details.</DialogDescription>
           </DialogHeader>
           {memberForm(true)}
         </DialogContent>

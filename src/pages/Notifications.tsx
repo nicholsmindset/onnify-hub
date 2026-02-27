@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -135,6 +135,7 @@ export default function Notifications() {
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create Notification Rule</DialogTitle>
+                  <DialogDescription>Set up an automated notification trigger.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2">

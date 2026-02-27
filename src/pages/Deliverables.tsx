@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DeliverableForm } from "@/components/forms/DeliverableForm";
 import { Plus } from "lucide-react";
@@ -198,6 +198,7 @@ export default function Deliverables() {
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Deliverable</DialogTitle>
+              <DialogDescription>Create a new deliverable for a client.</DialogDescription>
             </DialogHeader>
             <DeliverableForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
           </DialogContent>

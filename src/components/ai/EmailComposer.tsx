@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAIEmail } from "@/hooks/use-ai";
 import { EmailDraftParams, EmailDraft } from "@/lib/ai";
 import { Client } from "@/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +72,7 @@ export function EmailComposer({ open, onOpenChange, client }: EmailComposerProps
             <Sparkles className="h-5 w-5 text-primary" />
             AI Email Composer — {client.companyName}
           </DialogTitle>
+          <DialogDescription>Generate and send an AI-drafted email to this client.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">

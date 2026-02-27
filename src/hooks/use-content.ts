@@ -48,9 +48,10 @@ export function useCreateContent() {
   return useMutation({
     mutationFn: async (values: Partial<ContentItem> & { contentId?: string }) => {
       const row = toContentItemRow(values);
-      if (values.contentId) {
-        (row as Record<string, unknown>).content_id = values.contentId;
-      }
+      // Generate a proper ID via DB function instead of relying on a caller-supplied value
+      const { data: idData, error: idError } = await supabase.rpc("generate_content_id");
+      if (idError) throw idError;
+      (row as Record<string, unknown>).content_id = idData;
       const { data, error } = await supabase
         .from("content_items")
         .insert(row)

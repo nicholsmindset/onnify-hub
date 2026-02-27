@@ -10,8 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sparkles } from "lucide-react";
 import { ContentAIPanel } from "@/components/ai/ContentAIPanel";
+
+const hasAIKey = !!import.meta.env.VITE_OPENROUTER_API_KEY;
 
 interface ContentFormProps {
   defaultValues?: ContentItem;
@@ -165,15 +168,29 @@ export function ContentForm({ defaultValues, onSubmit, isLoading }: ContentFormP
           <FormItem>
             <div className="flex items-center justify-between">
               <FormLabel>Content Body</FormLabel>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => setAiPanelOpen(true)}
-              >
-                <Sparkles className="h-3 w-3" /> AI Assist
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        disabled={!hasAIKey}
+                        onClick={() => setAiPanelOpen(true)}
+                      >
+                        <Sparkles className="h-3 w-3" /> AI Assist
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!hasAIKey && (
+                    <TooltipContent>
+                      <p>Add VITE_OPENROUTER_API_KEY to .env.local to enable AI features</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <FormControl><Textarea placeholder="Write content here..." rows={4} {...field} /></FormControl>
             <FormMessage />

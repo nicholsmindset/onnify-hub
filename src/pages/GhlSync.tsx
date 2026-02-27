@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, RefreshCw, Unplug, Plug, Trash2, AlertTriangle } from "lucide-react";
 import { GhlConnection, GhlSyncStatus } from "@/types";
@@ -98,6 +98,7 @@ export default function GhlSync() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Connect Client to GHL</DialogTitle>
+              <DialogDescription>Link a client to their GoHighLevel account.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="space-y-2">

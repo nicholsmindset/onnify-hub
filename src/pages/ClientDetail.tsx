@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send } from "lucide-react";
@@ -395,6 +395,7 @@ export default function ClientDetail() {
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>{editingContact ? "Edit Contact" : "Add Contact"}</DialogTitle>
+                      <DialogDescription>{editingContact ? "Update this contact's details." : "Add a new contact for this client."}</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
                       <div className="grid grid-cols-2 gap-4">
