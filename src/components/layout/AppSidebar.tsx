@@ -63,6 +63,21 @@ const SHORTCUTS = [
 
 function HelpPanel() {
   const [open, setOpen] = useState(false);
+
+  // Listen for '?' key globally to open help panel
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.key === "?" &&
+        !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)
+      ) {
+        setOpen(true);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <>
       <Button
@@ -70,7 +85,7 @@ function HelpPanel() {
         size="icon"
         className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground"
         onClick={() => setOpen(true)}
-        title="Keyboard shortcuts"
+        title="Keyboard shortcuts (?)"
       >
         <HelpCircle className="h-4 w-4" />
       </Button>
@@ -109,12 +124,16 @@ export function AppSidebar() {
   const avatarUrl = fullProfile?.avatarUrl;
   const initials = (fullProfile?.fullName || profile?.fullName || user?.email || "U").charAt(0).toUpperCase();
 
-  // Global Cmd+K listener
+  // Global Cmd+K and Cmd+N listener
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCmdOpen(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("keyboard:new-item"));
       }
     }
     window.addEventListener("keydown", handleKeyDown);

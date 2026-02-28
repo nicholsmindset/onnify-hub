@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { usePortalAccessList, useCreatePortalAccess, useTogglePortalAccess, useDeletePortalAccess } from "@/hooks/use-portal";
 import { useClients } from "@/hooks/use-clients";
 import { useUnreadPortalMessageCounts, usePortalMessages, useSendPortalMessage, useMarkMessagesRead } from "@/hooks/use-portal-messages";
@@ -18,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck, Users, Clock } from "lucide-react";
+import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck, Users, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PortalAccess, ClientOnboarding } from "@/types";
 import { toast } from "sonner";
@@ -505,6 +507,55 @@ function TeamDialog({
   );
 }
 
+// Analytics panel shown when a client row is expanded
+function PortalAnalyticsPanel({ clientId, lastAccessedAt }: { clientId: string; lastAccessedAt: string | null | undefined }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["portal-analytics", clientId],
+    queryFn: async () => {
+      const [messages, files, teamMembers, openDeliverables] = await Promise.all([
+        supabase.from("portal_messages").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+        supabase.from("deliverables").select("id", { count: "exact", head: true }).eq("client_id", clientId).not("file_link", "is", null),
+        supabase.from("client_team_members").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+        supabase.from("deliverables").select("id", { count: "exact", head: true }).eq("client_id", clientId).in("status", ["Not Started", "In Progress", "Review"]),
+      ]);
+      return {
+        messages: messages.count ?? 0,
+        files: files.count ?? 0,
+        teamMembers: teamMembers.count ?? 0,
+        openDeliverables: openDeliverables.count ?? 0,
+      };
+    },
+  });
+
+  const stats = [
+    {
+      label: "Last Access",
+      value: lastAccessedAt ? timeAgo(lastAccessedAt) : "Never",
+    },
+    { label: "Messages", value: isLoading ? "—" : String(data?.messages ?? 0) },
+    { label: "Files Shared", value: isLoading ? "—" : String(data?.files ?? 0) },
+    { label: "Team Members", value: isLoading ? "—" : String(data?.teamMembers ?? 0) },
+    { label: "Open Deliverables", value: isLoading ? "—" : String(data?.openDeliverables ?? 0) },
+  ];
+
+  return (
+    <TableRow>
+      <TableCell colSpan={7} className="py-0">
+        <div className="px-2 py-3 bg-muted/30">
+          <div className="grid grid-cols-5 gap-2">
+            {stats.map((stat) => (
+              <div key={stat.label} className="bg-muted/50 rounded p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
+                <p className="text-sm font-semibold">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function PortalAdmin() {
   const { data: workspace } = useWorkspaceSettings();
   const agencyName = workspace?.agencyName ?? "Agency";
@@ -516,6 +567,7 @@ export default function PortalAdmin() {
   const deleteMutation = useDeletePortalAccess();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactName, setContactName] = useState("");
@@ -723,45 +775,64 @@ export default function PortalAdmin() {
             {accesses.map((access) => {
               const clientName = getClientName(access.clientId);
               const unread = unreadCounts[access.clientId] || 0;
+              const isExpanded = expandedClient === access.clientId;
               return (
-                <TableRow key={access.id} className={unread > 0 ? "bg-destructive/5" : ""}>
-                  <TableCell className="font-medium">{clientName}</TableCell>
-                  <TableCell>{access.contactName}</TableCell>
-                  <TableCell className="text-sm">{access.contactEmail}</TableCell>
-                  <TableCell>
-                    {access.isActive ? (
-                      <Badge variant="default">Active</Badge>
-                    ) : (
-                      <Badge variant="secondary">Disabled</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <MessagesDialog clientId={access.clientId} clientName={clientName} unreadCount={unread} />
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {access.lastAccessedAt ? timeAgo(access.lastAccessedAt) : "Never"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <FilesDialog portalAccessId={access.id} clientName={clientName} />
-                      <ClientBriefDialog portalAccessId={access.id} clientName={clientName} />
-                      <TeamDialog portalAccessId={access.id} accessToken={access.accessToken} clientName={clientName} />
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
-                        <Mail className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy portal link" onClick={() => copyPortalLink(access.accessToken)}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                      <Switch
-                        checked={access.isActive}
-                        onCheckedChange={(checked) => toggleMutation.mutate({ id: access.id, isActive: checked })}
-                      />
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteAccess(access)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow key={access.id} className={unread > 0 ? "bg-destructive/5" : ""}>
+                    <TableCell className="font-medium">{clientName}</TableCell>
+                    <TableCell>{access.contactName}</TableCell>
+                    <TableCell className="text-sm">{access.contactEmail}</TableCell>
+                    <TableCell>
+                      {access.isActive ? (
+                        <Badge variant="default">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Disabled</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <MessagesDialog clientId={access.clientId} clientName={clientName} unreadCount={unread} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {access.lastAccessedAt ? timeAgo(access.lastAccessedAt) : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Toggle analytics"
+                          onClick={() => setExpandedClient(isExpanded ? null : access.clientId)}
+                        >
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </Button>
+                        <FilesDialog portalAccessId={access.id} clientName={clientName} />
+                        <ClientBriefDialog portalAccessId={access.id} clientName={clientName} />
+                        <TeamDialog portalAccessId={access.id} accessToken={access.accessToken} clientName={clientName} />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Send invite email" onClick={() => sendInviteEmail(access)}>
+                          <Mail className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy portal link" onClick={() => copyPortalLink(access.accessToken)}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Switch
+                          checked={access.isActive}
+                          onCheckedChange={(checked) => toggleMutation.mutate({ id: access.id, isActive: checked })}
+                        />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteAccess(access)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <PortalAnalyticsPanel
+                      key={`analytics-${access.clientId}`}
+                      clientId={access.clientId}
+                      lastAccessedAt={access.lastAccessedAt}
+                    />
+                  )}
+                </>
               );
             })}
             {accesses.length === 0 && (

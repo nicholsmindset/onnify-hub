@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable } from "@/hooks/use-deliverables";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -119,6 +119,13 @@ export default function Deliverables() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editDeliverable, setEditDeliverable] = useState<Deliverable | null>(null);
   const [activeItem, setActiveItem] = useState<Deliverable | null>(null);
+
+  // Cmd+N shortcut: open create dialog
+  useEffect(() => {
+    const handler = () => setCreateOpen(true);
+    window.addEventListener("keyboard:new-item", handler);
+    return () => window.removeEventListener("keyboard:new-item", handler);
+  }, []);
   const [timeLogDeliverable, setTimeLogDeliverable] = useState<{ id: string; clientId: string; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 

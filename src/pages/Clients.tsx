@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from "@/hooks/use-clients";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,6 +38,13 @@ export default function Clients() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
+
+  // Cmd+N shortcut: open create dialog
+  useEffect(() => {
+    const handler = () => setCreateOpen(true);
+    window.addEventListener("keyboard:new-item", handler);
+    return () => window.removeEventListener("keyboard:new-item", handler);
+  }, []);
   const [createTags, setCreateTags] = useState<string[]>([]);
   const [editTags, setEditTags] = useState<string[]>([]);
 
