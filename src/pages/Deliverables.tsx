@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DeliverableForm } from "@/components/forms/DeliverableForm";
 import { Plus } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Deliverable, DeliverableStatus } from "@/types";
 import { DeliverableFormValues } from "@/lib/validations";
 import {
@@ -226,7 +227,19 @@ export default function Deliverables() {
         </Select>
       </div>
 
+      {/* Empty state when no deliverables at all */}
+      {deliverables.length === 0 && (
+        <EmptyState
+          icon={FileCheck}
+          title="No deliverables yet"
+          description="Create your first deliverable to start tracking work across your client projects."
+          actionLabel="Add Deliverable"
+          onAction={() => setCreateOpen(true)}
+        />
+      )}
+
       {/* Kanban Board with DnD */}
+      {deliverables.length > 0 && (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {columns.map((col) => {
@@ -268,6 +281,7 @@ export default function Deliverables() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* Edit Sheet */}
       <Sheet open={!!editDeliverable} onOpenChange={(open) => !open && setEditDeliverable(null)}>

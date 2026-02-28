@@ -5,6 +5,7 @@ import { useUnreadPortalMessageCounts, usePortalMessages, useSendPortalMessage, 
 import { useClientOnboarding } from "@/hooks/use-onboarding";
 import { usePortalFiles, useUploadPortalFile, useDeletePortalFile, formatFileSize } from "@/hooks/use-portal-files";
 import { usePortalTeamMembers } from "@/hooks/use-portal-team";
+import { useWorkspaceSettings } from "@/hooks/use-workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, ExternalLink, Copy, Trash2, Globe, Mail, Check, MessageSquare, FileText, Paperclip, Upload, Download, File, Send, CheckCheck, Users, Clock } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PortalAccess, ClientOnboarding } from "@/types";
 import { toast } from "sonner";
 
@@ -25,14 +27,14 @@ function buildPortalUrl(token: string) {
   return `${window.location.origin}/portal?token=${token}`;
 }
 
-function buildMailtoLink(email: string, contactName: string, clientName: string, portalUrl: string) {
-  const subject = encodeURIComponent(`Your ONNIFY WORKS Client Portal Access`);
+function buildMailtoLink(email: string, contactName: string, clientName: string, portalUrl: string, agencyName = "Agency") {
+  const subject = encodeURIComponent(`Your ${agencyName} Client Portal Access`);
   const body = encodeURIComponent(
     `Hi ${contactName},\n\n` +
-    `You have been granted access to the ${clientName} project dashboard on ONNIFY WORKS.\n\n` +
+    `You have been granted access to the ${clientName} project dashboard on ${agencyName}.\n\n` +
     `Click the link below to access your portal:\n${portalUrl}\n\n` +
     `You can bookmark this link for future access. If you have any questions, feel free to reply to this email.\n\n` +
-    `Best regards,\nONNIFY WORKS Team`
+    `Best regards,\n${agencyName} Team`
   );
   return `mailto:${email}?subject=${subject}&body=${body}`;
 }
@@ -302,6 +304,7 @@ function MessagesDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const { data: workspace } = useWorkspaceSettings();
   const { data: messages = [], isLoading } = usePortalMessages(open ? clientId : undefined);
   const sendMessage = useSendPortalMessage();
   const markRead = useMarkMessagesRead();
@@ -317,7 +320,7 @@ function MessagesDialog({
   const handleSend = () => {
     if (!text.trim()) return;
     sendMessage.mutate(
-      { clientId, senderType: "agency", senderName: "ONNIFY WORKS", message: text, clientName },
+      { clientId, senderType: "agency", senderName: workspace?.agencyName ?? "Agency", message: text, clientName },
       { onSuccess: () => setText("") }
     );
   };
@@ -503,6 +506,8 @@ function TeamDialog({
 }
 
 export default function PortalAdmin() {
+  const { data: workspace } = useWorkspaceSettings();
+  const agencyName = workspace?.agencyName ?? "Agency";
   const { data: accesses = [], isLoading } = usePortalAccessList();
   const { data: clients = [] } = useClients();
   const { data: unreadCounts = {} } = useUnreadPortalMessageCounts();
@@ -555,7 +560,7 @@ export default function PortalAdmin() {
   const sendInviteEmail = (access: PortalAccess) => {
     const clientName = getClientName(access.clientId);
     const portalUrl = buildPortalUrl(access.accessToken);
-    window.open(buildMailtoLink(access.contactEmail, access.contactName, clientName, portalUrl), "_blank");
+    window.open(buildMailtoLink(access.contactEmail, access.contactName, clientName, portalUrl, agencyName), "_blank");
     toast.success(`Opening email to ${access.contactEmail}`);
   };
 
@@ -656,7 +661,7 @@ export default function PortalAdmin() {
                 className="w-full"
                 onClick={() => {
                   const portalUrl = buildPortalUrl(createdAccess.token);
-                  window.open(buildMailtoLink(createdAccess.contactEmail, createdAccess.contactName, createdAccess.clientName, portalUrl), "_blank");
+                  window.open(buildMailtoLink(createdAccess.contactEmail, createdAccess.contactName, createdAccess.clientName, portalUrl, agencyName), "_blank");
                   toast.success(`Opening email to ${createdAccess.contactEmail}`);
                 }}
               >
@@ -761,8 +766,14 @@ export default function PortalAdmin() {
             })}
             {accesses.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No portal accesses created yet.
+                <TableCell colSpan={7} className="p-0">
+                  <EmptyState
+                    icon={Globe}
+                    title="No client portals yet"
+                    description="Grant a client contact access to their dedicated project portal to share updates, files, and messages."
+                    actionLabel="Grant Access"
+                    onAction={() => setCreateOpen(true)}
+                  />
                 </TableCell>
               </TableRow>
             )}

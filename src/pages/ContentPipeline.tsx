@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContentForm } from "@/components/forms/ContentForm";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Newspaper } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ContentItem, ContentStatus } from "@/types";
 import { ContentFormValues } from "@/lib/validations";
 import {
@@ -213,6 +214,18 @@ export default function ContentPipeline() {
         </Select>
       </div>
 
+      {/* Empty state when no content at all */}
+      {content.length === 0 && (
+        <EmptyState
+          icon={Newspaper}
+          title="No content yet"
+          description="Add your first content item to start managing your content pipeline across all stages."
+          actionLabel="Add Content"
+          onAction={() => setCreateOpen(true)}
+        />
+      )}
+
+      {content.length > 0 && (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {columns.map((col) => {
@@ -253,6 +266,7 @@ export default function ContentPipeline() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* Edit Sheet */}
       <Sheet open={!!editItem} onOpenChange={(open) => !open && setEditItem(null)}>

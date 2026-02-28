@@ -12,7 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Clock, FileCheck, ListTodo } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, FileCheck, ListTodo, UsersRound } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TeamMember, TeamRole } from "@/types";
 
 const roleColors: Record<TeamRole, string> = {
@@ -273,8 +274,14 @@ export default function Team() {
         })}
 
         {members.length === 0 && (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            <p>No team members yet. Add your first team member to get started.</p>
+          <div className="col-span-full">
+            <EmptyState
+              icon={UsersRound}
+              title="No team members yet"
+              description="Add your first team member to start tracking tasks, deliverables, and capacity."
+              actionLabel="Add Member"
+              onAction={() => setCreateOpen(true)}
+            />
           </div>
         )}
       </div>

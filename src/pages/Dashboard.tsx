@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
 import { SmartSuggestions } from "@/components/ai/SmartSuggestions";
 import { ActivityFeed } from "@/components/ActivityFeed";
-
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function Dashboard() {
   const { data: clients = [], isLoading: loadingClients } = useClients();
@@ -26,8 +27,16 @@ export default function Dashboard() {
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices();
   const { data: tasks = [], isLoading: loadingTasks } = useTasks();
   const { data: content = [], isLoading: loadingContent } = useContent();
+  const [checklistDismissed, setChecklistDismissed] = useState(() => {
+    return localStorage.getItem("onboarding_checklist_dismissed") === "true";
+  });
 
   const isLoading = loadingClients || loadingDeliverables || loadingInvoices || loadingTasks || loadingContent;
+
+  function handleDismissChecklist() {
+    localStorage.setItem("onboarding_checklist_dismissed", "true");
+    setChecklistDismissed(true);
+  }
 
   const stats = useMemo(() => {
     if (isLoading) return null;
@@ -76,22 +85,18 @@ export default function Dashboard() {
       return acc;
     }, {} as Record<string, number>);
 
-    // Content pipeline counts
     const contentByStatus = content.reduce((acc, c) => {
       acc[c.status] = (acc[c.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Deliverable completion rate
     const delivCompleted = deliverables.filter((d) => d.status === "Delivered" || d.status === "Approved").length;
     const delivCompletionRate = deliverables.length > 0 ? Math.round((delivCompleted / deliverables.length) * 100) : 0;
 
-    // Client health scores
     const healthScores = activeClients.map((c) =>
       calculateHealthScore(c, deliverables, invoices, tasks)
     ).sort((a, b) => a.score - b.score);
 
-    // Contracts expiring within 30 days
     const thirtyDaysFromNow = new Date(now);
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     const expiringContracts = clients.filter((c) => {
@@ -99,6 +104,9 @@ export default function Dashboard() {
       const end = new Date(c.contractEnd);
       return end >= now && end <= thirtyDaysFromNow;
     });
+
+    // Show checklist until user has at least 2 active clients + 3 deliverables (mature workspace)
+    const isNewWorkspace = clients.length < 2 && deliverables.length < 3;
 
     return {
       activeClients, sgClients, idClients, usClients,
@@ -110,6 +118,7 @@ export default function Dashboard() {
       delivCompletionRate,
       healthScores,
       expiringContracts,
+      isNewWorkspace,
     };
   }, [isLoading, clients, deliverables, invoices, tasks, content]);
 
@@ -118,7 +127,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-display font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">ONNIFY WORKS operations overview</p>
+          <p className="text-muted-foreground">Operations overview</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-lg" />)}
@@ -132,13 +141,19 @@ export default function Dashboard() {
   }
 
   const hasAlerts = stats.overdue.length > 0 || stats.overdueInvoices.length > 0 || stats.expiringContracts.length > 0;
+  const showChecklist = !checklistDismissed && stats.isNewWorkspace;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">ONNIFY WORKS operations overview</p>
+        <p className="text-muted-foreground">Operations overview</p>
       </div>
+
+      {/* Getting Started Checklist */}
+      {showChecklist && (
+        <OnboardingChecklist onDismiss={handleDismissChecklist} />
+      )}
 
       {/* Smart Alert Banner */}
       {hasAlerts && (
@@ -183,7 +198,10 @@ export default function Dashboard() {
         <Link to="/clients">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Clients</CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active Clients</CardTitle>
+                <InfoTooltip content="Clients with status 'Active'. Excludes prospects, onboarding, and churned clients." />
+              </div>
               <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -200,7 +218,10 @@ export default function Dashboard() {
         <Link to="/invoices">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Revenue (This Month)</CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Revenue (This Month)</CardTitle>
+                <InfoTooltip content="Total of all Sent and Paid invoices for the current calendar month across all markets." />
+              </div>
               <Receipt className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -222,7 +243,10 @@ export default function Dashboard() {
         <Link to="/deliverables">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Delivery Rate</CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Delivery Rate</CardTitle>
+                <InfoTooltip content="Percentage of all deliverables marked as Delivered or Approved. A healthy agency targets 85%+." />
+              </div>
               <FileCheck className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -236,7 +260,10 @@ export default function Dashboard() {
         <Link to="/tasks">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Open Tasks</CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Open Tasks</CardTitle>
+                <InfoTooltip content="All tasks not in 'Done' status. Breakdown shows tasks per team member." />
+              </div>
               <ListTodo className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -265,9 +292,11 @@ export default function Dashboard() {
         {/* Client Health Scores */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Zap className="h-4 w-4" /> Client Health Scores
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              <CardTitle className="text-sm font-medium">Client Health Scores</CardTitle>
+              <InfoTooltip content="A composite score (0–100) for each active client based on: deliverable completion rate, invoice payment history, open tasks, and contract status. Sorted worst-to-best so you can act fast." />
+            </div>
             <Link to="/reports">
               <Button variant="ghost" size="sm" className="h-7 text-xs">
                 View All <ArrowRight className="h-3 w-3 ml-1" />
@@ -303,7 +332,7 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">No active clients</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No active clients yet</p>
             )}
           </CardContent>
         </Card>
@@ -311,9 +340,11 @@ export default function Dashboard() {
         {/* Content Pipeline */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Content Pipeline
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <CardTitle className="text-sm font-medium">Content Pipeline</CardTitle>
+              <InfoTooltip content="Live snapshot of all content items across every stage of production. Click 'Open' to manage the full kanban board." />
+            </div>
             <Link to="/content">
               <Button variant="ghost" size="sm" className="h-7 text-xs">
                 Open <ArrowRight className="h-3 w-3 ml-1" />

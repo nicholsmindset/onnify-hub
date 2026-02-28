@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, RefreshCw, Unplug, Plug, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, RefreshCw, Unplug, Plug, Trash2, AlertTriangle, Link2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { GhlConnection, GhlSyncStatus } from "@/types";
 
 const statusConfig: Record<GhlSyncStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -231,13 +232,15 @@ export default function GhlSync() {
         })}
 
         {connections.length === 0 && (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <Unplug className="h-10 w-10 mx-auto mb-4 opacity-40" />
-              <p className="text-lg font-medium">No connections yet</p>
-              <p className="text-sm mt-1">Connect a client to GoHighLevel to start syncing data</p>
-            </CardContent>
-          </Card>
+          <div className="col-span-full">
+            <EmptyState
+              icon={Link2}
+              title="No GHL connections yet"
+              description="Connect a client to their GoHighLevel account to start syncing contacts and pipeline data."
+              actionLabel="Connect Client"
+              onAction={() => setCreateOpen(true)}
+            />
+          </div>
         )}
       </div>
 

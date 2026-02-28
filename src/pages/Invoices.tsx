@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { InvoiceForm } from "@/components/forms/InvoiceForm";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Invoice, InvoiceStatus } from "@/types";
 import { InvoiceFormValues } from "@/lib/validations";
 
@@ -156,6 +157,17 @@ export default function Invoices() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {invoices.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={Receipt}
+                      title="No invoices yet"
+                      description="Create your first invoice to start billing clients and tracking payments."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {invoices.map((inv) => (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono text-xs">{inv.invoiceId}</TableCell>

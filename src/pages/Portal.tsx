@@ -14,6 +14,7 @@ import {
   usePortalTeamMembers, useInviteTeamMember, useRemoveTeamMember,
   useValidateInviteToken, useUpdateMemberLastSeen,
 } from "@/hooks/use-portal-team";
+import { useWorkspaceSettings } from "@/hooks/use-workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -504,6 +505,7 @@ function PortalDashboard({
   accessToken: string;
   memberToken?: string;
 }) {
+  const { data: workspace } = useWorkspaceSettings();
   const { data: client, isLoading: loadingClient } = useClient(clientId);
   const { data: deliverables = [], isLoading: loadingDeliverables } = useDeliverables({ clientId });
   const { data: invoices = [], isLoading: loadingInvoices } = useInvoices({ clientId });
@@ -606,8 +608,8 @@ function PortalDashboard({
               <span className="text-primary-foreground font-bold text-sm">O</span>
             </div>
             <div>
-              <h1 className="font-display font-bold text-sm">ONNIFY WORKS</h1>
-              <p className="text-xs text-muted-foreground">Client Portal</p>
+              <h1 className="font-display font-bold text-sm">{workspace?.agencyName ?? "Agency"}</h1>
+              <p className="text-xs text-muted-foreground">{workspace?.portalTitle ?? "Client Portal"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -806,7 +808,7 @@ function PortalDashboard({
               {/* Upload button */}
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Share files with your ONNIFY WORKS team.
+                  Share files with your {workspace?.agencyName ?? "agency"} team.
                 </p>
                 <label className="cursor-pointer">
                   <input
@@ -892,7 +894,7 @@ function PortalDashboard({
                 <div className="max-h-96 overflow-y-auto space-y-3">
                   {messages.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8 text-sm">
-                      No messages yet. Send a message to your ONNIFY WORKS team below.
+                      No messages yet. Send a message to your {workspace?.agencyName ?? "agency"} team below.
                     </p>
                   ) : (
                     messages.map((msg) => (
@@ -923,7 +925,7 @@ function PortalDashboard({
 
                 <div className="flex gap-2 border-t pt-3">
                   <Textarea
-                    placeholder="Type a message to your ONNIFY WORKS team..."
+                    placeholder={`Type a message to your ${workspace?.agencyName ?? "agency"} team...`}
                     rows={2}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
@@ -960,6 +962,7 @@ export default function Portal() {
 
   const token = enteredToken || tokenParam || "";
   const { data: access, isLoading } = usePortalAccessByToken(token || undefined);
+  const { data: workspace } = useWorkspaceSettings();
 
   const handleLogin = (t: string) => {
     setEnteredToken(t);
@@ -984,7 +987,7 @@ export default function Portal() {
         <Card className="w-full max-w-md text-center">
           <CardContent className="py-12">
             <p className="text-lg font-medium text-destructive">Invalid or expired access token</p>
-            <p className="text-sm text-muted-foreground mt-2">Please contact your ONNIFY WORKS representative for a new link.</p>
+            <p className="text-sm text-muted-foreground mt-2">Please contact your {workspace?.agencyName ?? "agency"} representative for a new link.</p>
             <Button variant="outline" className="mt-4" onClick={() => { setEnteredToken(""); setSearchParams({}); }}>
               Try Again
             </Button>

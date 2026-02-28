@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TaskForm } from "@/components/forms/TaskForm";
-import { Plus } from "lucide-react";
+import { Plus, ListTodo } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Task, TaskStatus } from "@/types";
 import { TaskFormValues } from "@/lib/validations";
 import {
@@ -210,7 +211,19 @@ export default function Tasks() {
         </Select>
       </div>
 
+      {/* Empty state when no tasks at all */}
+      {tasks.length === 0 && (
+        <EmptyState
+          icon={ListTodo}
+          title="No tasks yet"
+          description="Create your first task to start tracking internal work and assignments."
+          actionLabel="Add Task"
+          onAction={() => setCreateOpen(true)}
+        />
+      )}
+
       {/* Kanban Board with DnD */}
+      {tasks.length > 0 && (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {columns.map((col) => {
@@ -251,6 +264,7 @@ export default function Tasks() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* Edit Sheet */}
       <Sheet open={!!editTask} onOpenChange={(open) => !open && setEditTask(null)}>

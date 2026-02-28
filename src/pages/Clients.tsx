@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ClientForm } from "@/components/forms/ClientForm";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Client, ClientStatus } from "@/types";
 import { ClientFormValues } from "@/lib/validations";
 import { useDeliverables } from "@/hooks/use-deliverables";
@@ -155,6 +156,17 @@ export default function Clients() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {clients.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      icon={Users}
+                      title="No clients yet"
+                      description="Add your first client to start tracking work, invoices, and deliverables."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {clients.map((client) => (
                 <TableRow
                   key={client.id}
@@ -193,11 +205,6 @@ export default function Clients() {
                   </TableCell>
                 </TableRow>
               ))}
-              {clients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">No clients found</TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
