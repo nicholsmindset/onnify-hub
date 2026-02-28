@@ -2,17 +2,20 @@ import { useState } from "react";
 import { useDeliverables, useCreateDeliverable, useUpdateDeliverable, useDeleteDeliverable } from "@/hooks/use-deliverables";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DeliverableForm } from "@/components/forms/DeliverableForm";
-import { Plus, Clock } from "lucide-react";
+import { BulkActionBar } from "@/components/BulkActionBar";
+import { Plus, Clock, Download, Trash2, FileCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Deliverable, DeliverableStatus } from "@/types";
 import { TimeLogDialog } from "@/components/TimeLogDialog";
 import { DeliverableFormValues } from "@/lib/validations";
+import { exportToCSV } from "@/lib/export";
 import {
   DndContext,
   DragEndEvent,
@@ -51,7 +54,14 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableCard({ deliverable, onClick, isOverdue, onLogTime }: { deliverable: Deliverable; onClick: () => void; isOverdue: boolean; onLogTime: () => void }) {
+function DraggableCard({ deliverable, onClick, isOverdue, onLogTime, isSelected, onToggleSelect }: {
+  deliverable: Deliverable;
+  onClick: () => void;
+  isOverdue: boolean;
+  onLogTime: () => void;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: deliverable.id,
     data: { status: deliverable.status },
@@ -66,11 +76,16 @@ function DraggableCard({ deliverable, onClick, isOverdue, onLogTime }: { deliver
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card
-        className={`border-t-2 ${columnColor[deliverable.status]} ${isOverdue ? "ring-1 ring-destructive/50" : ""} cursor-grab active:cursor-grabbing`}
+        className={`border-t-2 ${columnColor[deliverable.status]} ${isOverdue ? "ring-1 ring-destructive/50" : ""} ${isSelected ? "ring-2 ring-primary" : ""} cursor-grab active:cursor-grabbing`}
         onClick={onClick}
       >
         <CardContent className="p-3 space-y-2">
-          <p className="text-sm font-medium leading-tight">{deliverable.name}</p>
+          <div className="flex items-start gap-2">
+            <div onClick={(e) => { e.stopPropagation(); onToggleSelect(); }} className="mt-0.5 flex-shrink-0">
+              <Checkbox checked={isSelected} />
+            </div>
+            <p className="text-sm font-medium leading-tight flex-1">{deliverable.name}</p>
+          </div>
           <p className="text-xs text-muted-foreground">{deliverable.clientName}</p>
           <div className="flex items-center justify-between">
             <span className={`text-xs px-1.5 py-0.5 rounded ${priorityBadge[deliverable.priority]}`}>{deliverable.priority}</span>
@@ -105,10 +120,46 @@ export default function Deliverables() {
   const [editDeliverable, setEditDeliverable] = useState<Deliverable | null>(null);
   const [activeItem, setActiveItem] = useState<Deliverable | null>(null);
   const [timeLogDeliverable, setTimeLogDeliverable] = useState<{ id: string; clientId: string; name: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: deliverables = [], isLoading } = useDeliverables({ assignee: assigneeFilter, market: marketFilter });
   const createMutation = useCreateDeliverable();
   const updateMutation = useUpdateDeliverable();
+  const deleteMutation = useDeleteDeliverable();
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedDeliverables = deliverables.filter(d => selectedIds.has(d.id));
+
+  function handleBulkExport() {
+    exportToCSV(
+      selectedDeliverables.map(d => ({
+        ID: d.deliverableId,
+        Name: d.name,
+        Client: d.clientName ?? "",
+        Status: d.status,
+        Priority: d.priority,
+        "Due Date": d.dueDate,
+        "Assigned To": d.assignedTo,
+      })),
+      "deliverables-selected"
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!window.confirm(`Delete ${selectedIds.size} deliverable(s)? This cannot be undone.`)) return;
+    const ids = [...selectedIds];
+    Promise.all(ids.map(id => deleteMutation.mutateAsync(id))).then(() => {
+      setSelectedIds(new Set());
+    });
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -270,6 +321,8 @@ export default function Deliverables() {
                       isOverdue={isOverdue(d.dueDate, d.status)}
                       onClick={() => setEditDeliverable(d)}
                       onLogTime={() => setTimeLogDeliverable({ id: d.id, clientId: d.clientId, name: d.name })}
+                      isSelected={selectedIds.has(d.id)}
+                      onToggleSelect={() => toggleSelect(d.id)}
                     />
                   ))}
                   {items.length === 0 && (
@@ -321,6 +374,26 @@ export default function Deliverables() {
         clientId={timeLogDeliverable?.clientId ?? ""}
         deliverableId={timeLogDeliverable?.id}
         taskName={timeLogDeliverable?.name}
+      />
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onClear={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            label: "Export Selected",
+            icon: <Download className="h-3.5 w-3.5 mr-1.5" />,
+            onClick: handleBulkExport,
+            variant: "outline",
+          },
+          {
+            label: "Delete Selected",
+            icon: <Trash2 className="h-3.5 w-3.5 mr-1.5" />,
+            onClick: handleBulkDelete,
+            variant: "destructive",
+          },
+        ]}
       />
     </div>
   );

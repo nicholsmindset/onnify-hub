@@ -1,22 +1,57 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useClients } from "@/hooks/use-clients";
 import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { TrendingUp, DollarSign, CheckCircle, Clock, Users } from "lucide-react";
+import { TrendingUp, DollarSign, CheckCircle, Clock, Users, Download } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ReportInsights } from "@/components/ai/ReportInsights";
 import { calculateHealthScore, getGradeColor, getTrendColor, getTrendIcon } from "@/lib/health-score";
 import { Progress } from "@/components/ui/progress";
+import { exportToCSV } from "@/lib/export";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 export default function Reports() {
   const [marketFilter, setMarketFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<{ from: string; to: string }>(() => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    return { from, to };
+  });
+
+  function setPreset(preset: "thisMonth" | "lastMonth" | "last3Months" | "thisYear") {
+    const now = new Date();
+    if (preset === "thisMonth") {
+      setDateRange({
+        from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+        to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      });
+    } else if (preset === "lastMonth") {
+      setDateRange({
+        from: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
+        to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0],
+      });
+    } else if (preset === "last3Months") {
+      setDateRange({
+        from: new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split('T')[0],
+        to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0],
+      });
+    } else if (preset === "thisYear") {
+      setDateRange({
+        from: new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0],
+        to: new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0],
+      });
+    }
+  }
 
   const { data: clients = [], isLoading: l1 } = useClients();
   const { data: deliverables = [], isLoading: l2 } = useDeliverables();
@@ -31,12 +66,37 @@ export default function Reports() {
   [clients]);
 
   const filteredClients      = useMemo(() => marketFilter === "all" ? clients      : clients.filter((c) => c.market === marketFilter),      [clients, marketFilter]);
-  const filteredDeliverables = useMemo(() => marketFilter === "all" ? deliverables : deliverables.filter((d) => d.market === marketFilter),  [deliverables, marketFilter]);
-  const filteredInvoices     = useMemo(() => marketFilter === "all" ? invoices     : invoices.filter((i) => i.market === marketFilter),      [invoices, marketFilter]);
-  const filteredTasks        = useMemo(() => marketFilter === "all" ? tasks : tasks.filter((t) => {
-    if (!t.clientId) return false;
-    return clientMarketMap.get(t.clientId) === marketFilter;
-  }), [tasks, marketFilter, clientMarketMap]);
+  const filteredDeliverables = useMemo(() => {
+    let result = marketFilter === "all" ? deliverables : deliverables.filter((d) => d.market === marketFilter);
+    // Filter by due date range
+    result = result.filter((d) => {
+      if (!d.dueDate) return true;
+      return d.dueDate >= dateRange.from && d.dueDate <= dateRange.to;
+    });
+    return result;
+  }, [deliverables, marketFilter, dateRange]);
+  const filteredInvoices     = useMemo(() => {
+    let result = marketFilter === "all" ? invoices : invoices.filter((i) => i.market === marketFilter);
+    // Filter by month — invoice.month is YYYY-MM, compare with date range
+    result = result.filter((i) => {
+      if (!i.month) return true;
+      const monthStart = i.month + "-01";
+      return monthStart >= dateRange.from && monthStart <= dateRange.to;
+    });
+    return result;
+  }, [invoices, marketFilter, dateRange]);
+  const filteredTasks        = useMemo(() => {
+    let result = marketFilter === "all" ? tasks : tasks.filter((t) => {
+      if (!t.clientId) return false;
+      return clientMarketMap.get(t.clientId) === marketFilter;
+    });
+    // Filter by due date range
+    result = result.filter((t) => {
+      if (!t.dueDate) return true;
+      return t.dueDate >= dateRange.from && t.dueDate <= dateRange.to;
+    });
+    return result;
+  }, [tasks, marketFilter, clientMarketMap, dateRange]);
 
   // Revenue by month
   const revenueChartData = useMemo(() => {
@@ -104,20 +164,53 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-display font-bold">Client Reporting Dashboard</h1>
           <p className="text-muted-foreground">Revenue, performance, and client health analytics</p>
         </div>
-        <Select value={marketFilter} onValueChange={setMarketFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Market" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Markets</SelectItem>
-            <SelectItem value="SG">Singapore</SelectItem>
-            <SelectItem value="ID">Indonesia</SelectItem>
-            <SelectItem value="US">USA</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Date range presets */}
+          <div className="flex gap-1">
+            {[
+              { label: "This Month", preset: "thisMonth" as const },
+              { label: "Last Month", preset: "lastMonth" as const },
+              { label: "Last 3M", preset: "last3Months" as const },
+              { label: "This Year", preset: "thisYear" as const },
+            ].map(({ label, preset }) => (
+              <Button key={preset} variant="outline" size="sm" className="text-xs h-8" onClick={() => setPreset(preset)}>
+                {label}
+              </Button>
+            ))}
+          </div>
+          {/* Date range inputs */}
+          <div className="flex items-center gap-1.5">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">From</Label>
+            <Input type="date" value={dateRange.from} onChange={e => setDateRange(r => ({ ...r, from: e.target.value }))} className="w-auto h-8 text-sm" />
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">To</Label>
+            <Input type="date" value={dateRange.to} onChange={e => setDateRange(r => ({ ...r, to: e.target.value }))} className="w-auto h-8 text-sm" />
+          </div>
+          <Select value={marketFilter} onValueChange={setMarketFilter}>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Market" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Markets</SelectItem>
+              <SelectItem value="SG">Singapore</SelectItem>
+              <SelectItem value="ID">Indonesia</SelectItem>
+              <SelectItem value="US">USA</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => exportToCSV(filteredInvoices.map(i => ({
+            ID: i.invoiceId,
+            Client: i.clientName ?? "",
+            Month: i.month,
+            Amount: i.amount,
+            Currency: i.currency,
+            Status: i.status,
+            Services: i.servicesBilled,
+          })), `report-${dateRange.from}-to-${dateRange.to}`)}>
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* AI Insights */}

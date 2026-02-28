@@ -67,6 +67,10 @@ export interface Invoice {
   market: Market;
   createdAt?: string;
   updatedAt?: string;
+  isRecurring?: boolean;
+  recurrenceInterval?: string | null;
+  nextDueDate?: string | null;
+  parentInvoiceId?: string | null;
 }
 
 export type TaskStatus = "To Do" | "In Progress" | "Done" | "Blocked";
@@ -152,6 +156,10 @@ export function mapInvoice(row: Record<string, unknown>): Invoice {
     market: (row.market as Market) ?? "SG",
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
+    isRecurring: (row.is_recurring as boolean) ?? false,
+    recurrenceInterval: (row.recurrence_interval as string | null) ?? null,
+    nextDueDate: (row.next_due_date as string | null) ?? null,
+    parentInvoiceId: (row.parent_invoice_id as string | null) ?? null,
   };
 }
 
@@ -187,6 +195,7 @@ export function toClientRow(data: Partial<Client>) {
   if (data.contractStart !== undefined) row.contract_start = data.contractStart || null;
   if (data.contractEnd !== undefined) row.contract_end = data.contractEnd || null;
   if (data.monthlyValue !== undefined) row.monthly_value = data.monthlyValue;
+  if (data.tags !== undefined) row.tags = data.tags;
   return row;
 }
 
@@ -216,6 +225,10 @@ export function toInvoiceRow(data: Partial<Invoice>) {
   if (data.invoiceFileLink !== undefined) row.file_link = data.invoiceFileLink || null;
   if (data.status !== undefined) row.status = data.status;
   if (data.paymentDate !== undefined) row.payment_date = data.paymentDate || null;
+  if (data.isRecurring !== undefined) row.is_recurring = data.isRecurring;
+  if (data.recurrenceInterval !== undefined) row.recurrence_interval = data.recurrenceInterval || null;
+  if (data.nextDueDate !== undefined) row.next_due_date = data.nextDueDate || null;
+  if (data.parentInvoiceId !== undefined) row.parent_invoice_id = data.parentInvoiceId || null;
   return row;
 }
 

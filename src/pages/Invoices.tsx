@@ -1,19 +1,24 @@
 import { useState } from "react";
-import { useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from "@/hooks/use-invoices";
+import { useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useGenerateRecurringInvoice } from "@/hooks/use-invoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { InvoiceForm } from "@/components/forms/InvoiceForm";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { BulkActionBar } from "@/components/BulkActionBar";
+import { Plus, Pencil, Trash2, Download, FileDown, RefreshCw, Receipt } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Invoice, InvoiceStatus } from "@/types";
 import { InvoiceFormValues } from "@/lib/validations";
+import { exportToCSV, exportInvoicePDF } from "@/lib/export";
 
 const statusColor: Record<InvoiceStatus, string> = {
   Draft: "bg-muted text-muted-foreground",
@@ -22,17 +27,28 @@ const statusColor: Record<InvoiceStatus, string> = {
   Overdue: "bg-destructive/10 text-destructive",
 };
 
+interface RecurringState {
+  isRecurring: boolean;
+  recurrenceInterval: string;
+}
+
+const defaultRecurring: RecurringState = { isRecurring: false, recurrenceInterval: "monthly" };
+
 export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [marketFilter, setMarketFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [deleteInvoice, setDeleteInvoice] = useState<Invoice | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [createRecurring, setCreateRecurring] = useState<RecurringState>(defaultRecurring);
+  const [editRecurring, setEditRecurring] = useState<RecurringState>(defaultRecurring);
 
   const { data: invoices = [], isLoading } = useInvoices({ status: statusFilter, market: marketFilter });
   const createMutation = useCreateInvoice();
   const updateMutation = useUpdateInvoice();
   const deleteMutation = useDeleteInvoice();
+  const generateRecurringMutation = useGenerateRecurringInvoice();
 
   const totalByCurrency = invoices.reduce((acc, inv) => {
     if (inv.status === "Paid" || inv.status === "Sent") {
@@ -53,15 +69,27 @@ export default function Invoices() {
         paymentDate: data.paymentDate || undefined,
         market: data.market,
         invoiceId: "INV-TMP",
+        isRecurring: createRecurring.isRecurring,
+        recurrenceInterval: createRecurring.isRecurring ? createRecurring.recurrenceInterval : null,
       },
-      { onSuccess: () => setCreateOpen(false) }
+      {
+        onSuccess: () => {
+          setCreateOpen(false);
+          setCreateRecurring(defaultRecurring);
+        },
+      }
     );
   };
 
   const handleUpdate = (data: InvoiceFormValues) => {
     if (!editInvoice) return;
     updateMutation.mutate(
-      { id: editInvoice.id, ...data },
+      {
+        id: editInvoice.id,
+        ...data,
+        isRecurring: editRecurring.isRecurring,
+        recurrenceInterval: editRecurring.isRecurring ? editRecurring.recurrenceInterval : null,
+      },
       { onSuccess: () => setEditInvoice(null) }
     );
   };
@@ -73,6 +101,55 @@ export default function Invoices() {
     });
   };
 
+  function openEdit(inv: Invoice) {
+    setEditInvoice(inv);
+    setEditRecurring({
+      isRecurring: inv.isRecurring ?? false,
+      recurrenceInterval: inv.recurrenceInterval ?? "monthly",
+    });
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === invoices.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(invoices.map(i => i.id)));
+    }
+  }
+
+  const selectedInvoices = invoices.filter(i => selectedIds.has(i.id));
+
+  function handleBulkExport() {
+    exportToCSV(
+      selectedInvoices.map(inv => ({
+        ID: inv.invoiceId,
+        Client: inv.clientName ?? "",
+        Amount: inv.amount,
+        Currency: inv.currency,
+        Status: inv.status,
+        "Due Date": inv.paymentDate ?? "",
+      })),
+      "invoices-selected"
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!window.confirm(`Delete ${selectedIds.size} invoice(s)? This cannot be undone.`)) return;
+    const ids = [...selectedIds];
+    Promise.all(ids.map(id => deleteMutation.mutateAsync(id))).then(() => {
+      setSelectedIds(new Set());
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -80,18 +157,57 @@ export default function Invoices() {
           <h1 className="text-2xl font-display font-bold">Invoice & Revenue</h1>
           <p className="text-muted-foreground">Track invoices and revenue across markets</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Add Invoice</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Invoice</DialogTitle>
-              <DialogDescription>Fill in the invoice details below.</DialogDescription>
-            </DialogHeader>
-            <InvoiceForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCSV(invoices.map(inv => ({
+            ID: inv.invoiceId,
+            Client: inv.clientName ?? "",
+            Amount: inv.amount,
+            Currency: inv.currency,
+            Status: inv.status,
+            Month: inv.month,
+            Services: inv.servicesBilled,
+          })), "invoices")}>
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateRecurring(defaultRecurring); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Add Invoice</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Invoice</DialogTitle>
+                <DialogDescription>Fill in the invoice details below.</DialogDescription>
+              </DialogHeader>
+              <InvoiceForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
+              {/* Recurring controls — outside the InvoiceForm to keep form logic clean */}
+              <div className="space-y-3 border-t pt-4 mt-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Recurring Invoice</Label>
+                  <Switch
+                    checked={createRecurring.isRecurring}
+                    onCheckedChange={v => setCreateRecurring(r => ({ ...r, isRecurring: v }))}
+                  />
+                </div>
+                {createRecurring.isRecurring && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Recurrence</Label>
+                    <Select
+                      value={createRecurring.recurrenceInterval}
+                      onValueChange={v => setCreateRecurring(r => ({ ...r, recurrenceInterval: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="annually">Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Revenue Summary */}
@@ -147,19 +263,25 @@ export default function Invoices() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={invoices.length > 0 && selectedIds.size === invoices.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>Invoice ID</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Month</TableHead>
                 <TableHead>Services</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {invoices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <EmptyState
                       icon={Receipt}
                       title="No invoices yet"
@@ -169,8 +291,23 @@ export default function Invoices() {
                 </TableRow>
               )}
               {invoices.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-mono text-xs">{inv.invoiceId}</TableCell>
+                <TableRow key={inv.id} className={selectedIds.has(inv.id) ? "bg-muted/50" : ""}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(inv.id)}
+                      onCheckedChange={() => toggleSelect(inv.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {inv.invoiceId}
+                      {inv.isRecurring && (
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0 gap-0.5">
+                          <RefreshCw className="h-2.5 w-2.5" /> {inv.recurrenceInterval}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">{inv.clientName}</TableCell>
                   <TableCell>{inv.month}</TableCell>
                   <TableCell className="text-sm">{inv.servicesBilled}</TableCell>
@@ -184,7 +321,35 @@ export default function Invoices() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditInvoice(inv)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Export PDF"
+                        onClick={() => exportInvoicePDF({
+                          invoiceId: inv.invoiceId,
+                          clientName: inv.clientName,
+                          amount: inv.amount,
+                          currency: inv.currency,
+                          status: inv.status,
+                          dueDate: inv.paymentDate,
+                        })}
+                      >
+                        <FileDown className="h-3.5 w-3.5" />
+                      </Button>
+                      {inv.isRecurring && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-primary"
+                          title="Generate next invoice"
+                          onClick={() => generateRecurringMutation.mutate(inv)}
+                          disabled={generateRecurringMutation.isPending}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(inv)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteInvoice(inv)}>
@@ -206,12 +371,37 @@ export default function Invoices() {
             <SheetTitle>Edit Invoice</SheetTitle>
           </SheetHeader>
           {editInvoice && (
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
               <InvoiceForm
                 defaultValues={editInvoice}
                 onSubmit={handleUpdate}
                 isLoading={updateMutation.isPending}
               />
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Recurring Invoice</Label>
+                  <Switch
+                    checked={editRecurring.isRecurring}
+                    onCheckedChange={v => setEditRecurring(r => ({ ...r, isRecurring: v }))}
+                  />
+                </div>
+                {editRecurring.isRecurring && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Recurrence</Label>
+                    <Select
+                      value={editRecurring.recurrenceInterval}
+                      onValueChange={v => setEditRecurring(r => ({ ...r, recurrenceInterval: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="annually">Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </SheetContent>
@@ -234,6 +424,27 @@ export default function Invoices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onClear={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            label: "Export Selected",
+            icon: <Download className="h-3.5 w-3.5 mr-1.5" />,
+            onClick: handleBulkExport,
+            variant: "outline",
+          },
+          {
+            label: "Delete Selected",
+            icon: <Trash2 className="h-3.5 w-3.5 mr-1.5" />,
+            onClick: handleBulkDelete,
+            variant: "destructive",
+          },
+        ]}
+      />
     </div>
   );
 }
+

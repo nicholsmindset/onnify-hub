@@ -11,7 +11,7 @@ import { useContent } from "@/hooks/use-content";
 import {
   Users, FileCheck, Receipt, ListTodo, AlertTriangle, TrendingUp,
   TrendingDown, ArrowRight, DollarSign, Clock, FileText, Zap,
-  AlertCircle, Calendar,
+  AlertCircle, Calendar, RefreshCw,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,14 @@ export default function Dashboard() {
     // Show checklist until user has at least 2 active clients + 3 deliverables (mature workspace)
     const isNewWorkspace = clients.length < 2 && deliverables.length < 3;
 
+    // Recurring invoices due within 7 days
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const upcomingRecurring = invoices.filter(inv =>
+      inv.isRecurring && inv.nextDueDate &&
+      new Date(inv.nextDueDate) >= now &&
+      new Date(inv.nextDueDate) <= in7Days
+    );
+
     return {
       activeClients, sgClients, idClients, usClients,
       dueThisWeek, overdue,
@@ -119,6 +127,7 @@ export default function Dashboard() {
       healthScores,
       expiringContracts,
       isNewWorkspace,
+      upcomingRecurring,
     };
   }, [isLoading, clients, deliverables, invoices, tasks, content]);
 
@@ -191,6 +200,24 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Recurring Invoice Alert */}
+      {stats.upcomingRecurring.length > 0 && (
+        <div className="flex items-center gap-3 p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <RefreshCw className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {stats.upcomingRecurring.length} recurring invoice{stats.upcomingRecurring.length > 1 ? "s" : ""} due within 7 days
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Go to Invoices to generate them
+            </p>
+          </div>
+          <Button size="sm" variant="outline" asChild className="border-amber-300">
+            <Link to="/invoices">View Invoices</Link>
+          </Button>
+        </div>
       )}
 
       {/* KPI Grid */}

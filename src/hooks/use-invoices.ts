@@ -119,3 +119,47 @@ export function useDeleteInvoice() {
     },
   });
 }
+
+export function useGenerateRecurringInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (parentInvoice: Invoice) => {
+      // Get next invoice code via RPC
+      const { data: codeData } = await supabase.rpc('generate_invoice_id');
+      const nextCode = codeData as string;
+
+      // Calculate next due date based on interval
+      const baseDate = parentInvoice.nextDueDate
+        ? new Date(parentInvoice.nextDueDate)
+        : new Date();
+      const interval = parentInvoice.recurrenceInterval ?? 'monthly';
+      const nextDue = new Date(baseDate);
+      if (interval === 'monthly') nextDue.setMonth(nextDue.getMonth() + 1);
+      else if (interval === 'quarterly') nextDue.setMonth(nextDue.getMonth() + 3);
+      else if (interval === 'annually') nextDue.setFullYear(nextDue.getFullYear() + 1);
+
+      const { error } = await supabase.from('invoices').insert({
+        invoice_code: nextCode,
+        client_id: parentInvoice.clientId,
+        amount: parentInvoice.amount,
+        currency: parentInvoice.currency ?? 'USD',
+        status: 'Draft',
+        market: parentInvoice.market ?? 'SG',
+        due_date: nextDue.toISOString().split('T')[0],
+        is_recurring: true,
+        recurrence_interval: interval,
+        parent_invoice_id: parentInvoice.id,
+        services_billed: parentInvoice.servicesBilled ?? '',
+        month: `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, '0')}`,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      toast.success('Recurring invoice generated');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to generate recurring invoice: ${error.message}`);
+    },
+  });
+}

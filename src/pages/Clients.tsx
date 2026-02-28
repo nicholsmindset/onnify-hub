@@ -4,6 +4,7 @@ import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ClientForm } from "@/components/forms/ClientForm";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { TagInput } from "@/components/TagInput";
+import { Plus, Search, Pencil, Trash2, Download, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Client, ClientStatus } from "@/types";
 import { ClientFormValues } from "@/lib/validations";
@@ -19,6 +21,7 @@ import { useDeliverables } from "@/hooks/use-deliverables";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { calculateHealthScore, getGradeColor } from "@/lib/health-score";
+import { exportToCSV } from "@/lib/export";
 
 const statusColor: Record<ClientStatus, string> = {
   Prospect: "bg-muted text-muted-foreground",
@@ -35,6 +38,8 @@ export default function Clients() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
+  const [createTags, setCreateTags] = useState<string[]>([]);
+  const [editTags, setEditTags] = useState<string[]>([]);
 
   const { data: clients = [], isLoading } = useClients({ market: marketFilter, status: statusFilter, search });
   const { data: allDeliverables = [] } = useDeliverables();
@@ -64,18 +69,29 @@ export default function Clients() {
         contractEnd: data.contractEnd || undefined,
         monthlyValue: data.monthlyValue,
         ghlUrl: data.ghlUrl || undefined,
+        tags: createTags,
       },
-      { onSuccess: () => setCreateOpen(false) }
+      {
+        onSuccess: () => {
+          setCreateOpen(false);
+          setCreateTags([]);
+        },
+      }
     );
   };
 
   const handleUpdate = (data: ClientFormValues) => {
     if (!editClient) return;
     updateMutation.mutate(
-      { id: editClient.id, ...data },
+      { id: editClient.id, ...data, tags: editTags },
       { onSuccess: () => setEditClient(null) }
     );
   };
+
+  function openEdit(client: Client) {
+    setEditClient(client);
+    setEditTags(client.tags ?? []);
+  }
 
   const handleDelete = () => {
     if (!deleteClient) return;
@@ -91,18 +107,36 @@ export default function Clients() {
           <h1 className="text-2xl font-display font-bold">Client Registry</h1>
           <p className="text-muted-foreground">{clients.length} clients across all markets</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Add Client</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>Fill in the details to add a new client.</DialogDescription>
-            </DialogHeader>
-            <ClientForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCSV(clients.map(c => ({
+            ID: c.clientId,
+            Company: c.companyName,
+            Market: c.market,
+            Status: c.status,
+            Plan: c.planTier,
+            Contact: c.primaryContact,
+            "Monthly Value": c.monthlyValue,
+            Tags: (c.tags ?? []).join(", "),
+          })), "clients")}>
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateTags([]); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" /> Add Client</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Fill in the details to add a new client.</DialogDescription>
+              </DialogHeader>
+              <ClientForm onSubmit={handleCreate} isLoading={createMutation.isPending} />
+              <div className="border-t pt-4 mt-2 space-y-1">
+                <Label className="text-sm font-medium">Tags</Label>
+                <TagInput value={createTags} onChange={setCreateTags} placeholder="e.g. VIP, Enterprise..." />
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -195,7 +229,7 @@ export default function Clients() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditClient(client)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteClient(client)}>
@@ -217,12 +251,16 @@ export default function Clients() {
             <SheetTitle>Edit Client</SheetTitle>
           </SheetHeader>
           {editClient && (
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
               <ClientForm
                 defaultValues={editClient}
                 onSubmit={handleUpdate}
                 isLoading={updateMutation.isPending}
               />
+              <div className="border-t pt-4 space-y-1">
+                <Label className="text-sm font-medium">Tags</Label>
+                <TagInput value={editTags} onChange={setEditTags} placeholder="e.g. VIP, Enterprise..." />
+              </div>
             </div>
           )}
         </SheetContent>
