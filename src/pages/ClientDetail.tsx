@@ -6,6 +6,7 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { useTasks } from "@/hooks/use-tasks";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from "@/hooks/use-contacts";
 import { usePortalMessages, useSendPortalMessage } from "@/hooks/use-portal-messages";
+import { useTimeEntries, useDeleteTimeEntry } from "@/hooks/use-time-entries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send } from "lucide-react";
+import { ArrowLeft, ExternalLink, Calendar, DollarSign, Building2, User, Sparkles, Plus, Pencil, Trash2, Phone, Mail, Star, MessageSquare, Send, Clock } from "lucide-react";
 import { ClientStatus, DeliverableStatus, InvoiceStatus, Contact, ContactRole } from "@/types";
 import { EmailComposer } from "@/components/ai/EmailComposer";
 import { ActivityTimeline } from "@/components/ActivityTimeline";
@@ -66,6 +67,8 @@ export default function ClientDetail() {
   const { data: contacts = [], isLoading: loadingContacts } = useContacts(id);
   const { data: portalMessages = [] } = usePortalMessages(id);
   const sendPortalMessage = useSendPortalMessage();
+  const { data: timeEntries = [] } = useTimeEntries({ clientId: id });
+  const deleteTimeEntry = useDeleteTimeEntry();
   const createContact = useCreateContact();
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
@@ -267,6 +270,10 @@ export default function ClientDetail() {
           <TabsTrigger value="messages" className="gap-1">
             <MessageSquare className="h-3.5 w-3.5" />
             Messages {portalMessages.length > 0 && `(${portalMessages.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="time" className="gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            Time {timeEntries.length > 0 && `(${timeEntries.length})`}
           </TabsTrigger>
         </TabsList>
 
@@ -584,6 +591,101 @@ export default function ClientDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Time Tab */}
+        <TabsContent value="time" className="mt-4">
+          {timeEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No time entries yet for this client.</p>
+          ) : (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs text-muted-foreground">Total Hours</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-mono font-bold">
+                      {timeEntries.reduce((sum, e) => sum + e.hours, 0).toFixed(1)}h
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs text-muted-foreground">Billable Hours</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-mono font-bold">
+                      {timeEntries.filter((e) => e.isBillable).reduce((sum, e) => sum + e.hours, 0).toFixed(1)}h
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs text-muted-foreground">Billable Amount</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl font-mono font-bold">
+                      ${timeEntries
+                        .filter((e) => e.isBillable && e.hourlyRate)
+                        .reduce((sum, e) => sum + e.hours * (e.hourlyRate ?? 0), 0)
+                        .toFixed(0)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Table */}
+              <div className="rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Team Member</TableHead>
+                      <TableHead className="text-right">Hours</TableHead>
+                      <TableHead>Linked To</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Billable</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {timeEntries.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell className="text-sm font-mono">{entry.date}</TableCell>
+                        <TableCell className="text-sm">{entry.teamMember}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{entry.hours.toFixed(1)}h</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {entry.taskId ? "Task" : entry.deliverableId ? "Deliverable" : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
+                          {entry.notes ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          {entry.isBillable ? (
+                            <Badge className="text-xs bg-success/10 text-success border-0">Billable</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Non-billable</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => deleteTimeEntry.mutate(entry.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

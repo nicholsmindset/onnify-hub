@@ -8,9 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TaskForm } from "@/components/forms/TaskForm";
-import { Plus, ListTodo } from "lucide-react";
+import { Plus, ListTodo, Clock } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Task, TaskStatus } from "@/types";
+import { TimeLogDialog } from "@/components/TimeLogDialog";
 import { TaskFormValues } from "@/lib/validations";
 import {
   DndContext,
@@ -52,7 +53,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableTaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+function DraggableTaskCard({ task, onClick, onLogTime }: { task: Task; onClick: () => void; onLogTime: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { status: task.status },
@@ -77,7 +78,17 @@ function DraggableTaskCard({ task, onClick }: { task: Task; onClick: () => void 
             <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColor[task.category]}`}>{task.category}</span>
             <span className="text-xs text-muted-foreground">{task.assignedTo}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Due: {task.dueDate}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Due: {task.dueDate}</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => { e.stopPropagation(); onLogTime(); }}
+            >
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -90,6 +101,7 @@ export default function Tasks() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [activeItem, setActiveItem] = useState<Task | null>(null);
+  const [timeLogTask, setTimeLogTask] = useState<{ id: string; clientId: string; name: string } | null>(null);
 
   const { data: tasks = [], isLoading } = useTasks({ assignee: assigneeFilter, category: categoryFilter });
   const createMutation = useCreateTask();
@@ -240,6 +252,7 @@ export default function Tasks() {
                       key={t.id}
                       task={t}
                       onClick={() => setEditTask(t)}
+                      onLogTime={() => setTimeLogTask({ id: t.id, clientId: t.clientId ?? "", name: t.name })}
                     />
                   ))}
                   {items.length === 0 && (
@@ -283,6 +296,15 @@ export default function Tasks() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Time Log Dialog */}
+      <TimeLogDialog
+        open={!!timeLogTask}
+        onOpenChange={(open) => !open && setTimeLogTask(null)}
+        clientId={timeLogTask?.clientId ?? ""}
+        taskId={timeLogTask?.id}
+        taskName={timeLogTask?.name}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ const Clients        = lazy(() => import("./pages/Clients"));
 const ClientDetail   = lazy(() => import("./pages/ClientDetail"));
 const Deliverables   = lazy(() => import("./pages/Deliverables"));
 const Invoices       = lazy(() => import("./pages/Invoices"));
+const Proposals      = lazy(() => import("./pages/Proposals"));
 const Tasks          = lazy(() => import("./pages/Tasks"));
 const ContentPipeline = lazy(() => import("./pages/ContentPipeline"));
 const GhlSync        = lazy(() => import("./pages/GhlSync"));
@@ -25,6 +26,10 @@ const Portal         = lazy(() => import("./pages/Portal"));
 const Settings       = lazy(() => import("./pages/Settings"));
 const Login          = lazy(() => import("./pages/Login"));
 const Register       = lazy(() => import("./pages/Register"));
+const Calendar       = lazy(() => import("./pages/Calendar"));
+const Resources      = lazy(() => import("./pages/Resources"));
+const Templates      = lazy(() => import("./pages/Templates"));
+const Pipeline       = lazy(() => import("./pages/Pipeline"));
 const NotFound       = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -61,6 +66,7 @@ const App = () => (
                     <Route path="/clients/:id" element={<ClientDetail />} />
                     <Route path="/deliverables" element={<Deliverables />} />
                     <Route path="/invoices" element={<Invoices />} />
+                    <Route path="/proposals" element={<Proposals />} />
                     <Route path="/tasks" element={<Tasks />} />
                     <Route path="/content" element={<ContentPipeline />} />
                     <Route path="/ghl-sync" element={<GhlSync />} />
@@ -68,6 +74,10 @@ const App = () => (
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/team" element={<Team />} />
                     <Route path="/portal-admin" element={<PortalAdmin />} />
+                    <Route path="/pipeline" element={<Pipeline />} />
+                    <Route path="/calendar" element={<Calendar />} />
+                    <Route path="/resources" element={<Resources />} />
+                    <Route path="/templates" element={<Templates />} />
                     <Route path="/settings" element={<Settings />} />
                   </Route>
                 </Route>

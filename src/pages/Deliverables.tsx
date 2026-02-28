@@ -8,9 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DeliverableForm } from "@/components/forms/DeliverableForm";
-import { Plus } from "lucide-react";
+import { Plus, Clock } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Deliverable, DeliverableStatus } from "@/types";
+import { TimeLogDialog } from "@/components/TimeLogDialog";
 import { DeliverableFormValues } from "@/lib/validations";
 import {
   DndContext,
@@ -50,7 +51,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableCard({ deliverable, onClick, isOverdue }: { deliverable: Deliverable; onClick: () => void; isOverdue: boolean }) {
+function DraggableCard({ deliverable, onClick, isOverdue, onLogTime }: { deliverable: Deliverable; onClick: () => void; isOverdue: boolean; onLogTime: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: deliverable.id,
     data: { status: deliverable.status },
@@ -77,9 +78,19 @@ function DraggableCard({ deliverable, onClick, isOverdue }: { deliverable: Deliv
           </div>
           <div className="flex items-center justify-between">
             <Badge variant="outline" className="text-xs">{deliverable.serviceType}</Badge>
-            <span className={`text-xs ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-              {deliverable.dueDate}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className={`text-xs ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {deliverable.dueDate}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={(e) => { e.stopPropagation(); onLogTime(); }}
+              >
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -93,6 +104,7 @@ export default function Deliverables() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editDeliverable, setEditDeliverable] = useState<Deliverable | null>(null);
   const [activeItem, setActiveItem] = useState<Deliverable | null>(null);
+  const [timeLogDeliverable, setTimeLogDeliverable] = useState<{ id: string; clientId: string; name: string } | null>(null);
 
   const { data: deliverables = [], isLoading } = useDeliverables({ assignee: assigneeFilter, market: marketFilter });
   const createMutation = useCreateDeliverable();
@@ -257,6 +269,7 @@ export default function Deliverables() {
                       deliverable={d}
                       isOverdue={isOverdue(d.dueDate, d.status)}
                       onClick={() => setEditDeliverable(d)}
+                      onLogTime={() => setTimeLogDeliverable({ id: d.id, clientId: d.clientId, name: d.name })}
                     />
                   ))}
                   {items.length === 0 && (
@@ -300,6 +313,15 @@ export default function Deliverables() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Time Log Dialog */}
+      <TimeLogDialog
+        open={!!timeLogDeliverable}
+        onOpenChange={(open) => !open && setTimeLogDeliverable(null)}
+        clientId={timeLogDeliverable?.clientId ?? ""}
+        deliverableId={timeLogDeliverable?.id}
+        taskName={timeLogDeliverable?.name}
+      />
     </div>
   );
 }

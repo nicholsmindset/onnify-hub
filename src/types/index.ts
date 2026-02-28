@@ -18,6 +18,11 @@ export interface Client {
   monthlyValue: number;
   createdAt?: string;
   updatedAt?: string;
+  pipelineStage?: string;
+  estimatedValue?: number;
+  pipelineNotes?: string | null;
+  lastContactAt?: string | null;
+  tags?: string[];
 }
 
 export type ServiceType = "SEO" | "Voice AI" | "CRM" | "Paid Media" | "Content" | "Automation" | "Strategy";
@@ -101,6 +106,11 @@ export function mapClient(row: Record<string, unknown>): Client {
     monthlyValue: Number(row.monthly_value),
     createdAt: row.created_at as string | undefined,
     updatedAt: row.updated_at as string | undefined,
+    pipelineStage: row.pipeline_stage as string | undefined,
+    estimatedValue: row.estimated_value != null ? Number(row.estimated_value) : undefined,
+    pipelineNotes: (row.pipeline_notes as string | null | undefined) ?? null,
+    lastContactAt: (row.last_contact_at as string | null | undefined) ?? null,
+    tags: (row.tags as string[] | null | undefined) ?? [],
   };
 }
 
@@ -724,4 +734,203 @@ export function toActivityLogRow(data: Partial<ActivityLog>) {
   if (data.performedBy !== undefined) row.performed_by = data.performedBy;
   if (data.metadata !== undefined) row.metadata = data.metadata || null;
   return row;
+}
+
+// ============================================
+// PROJECT TEMPLATE TYPES
+// ============================================
+
+export interface TemplateTask {
+  id: string;
+  templateDeliverableId: string;
+  name: string;
+  priority: string;
+}
+
+export interface TemplateDeliverable {
+  id: string;
+  templateId: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  tasks?: TemplateTask[];
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  createdAt: string;
+  deliverables?: TemplateDeliverable[];
+}
+
+export function mapTemplateTask(row: any): TemplateTask {
+  return {
+    id: row.id,
+    templateDeliverableId: row.template_deliverable_id,
+    name: row.name,
+    priority: row.priority ?? 'medium',
+  };
+}
+
+export function mapTemplateDeliverable(row: any): TemplateDeliverable {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    name: row.name,
+    description: row.description,
+    sortOrder: row.sort_order ?? 0,
+    tasks: row.template_tasks?.map(mapTemplateTask) ?? [],
+  };
+}
+
+export function mapProjectTemplate(row: any): ProjectTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category ?? 'custom',
+    createdAt: row.created_at,
+    deliverables: row.template_deliverables?.map(mapTemplateDeliverable) ?? [],
+  };
+}
+
+// ============================================
+// TIME ENTRY TYPES
+// ============================================
+
+export interface TimeEntry {
+  id: string;
+  taskId: string | null;
+  deliverableId: string | null;
+  clientId: string;
+  teamMember: string;
+  hours: number;
+  date: string;
+  notes: string | null;
+  isBillable: boolean;
+  hourlyRate: number | null;
+  createdAt: string;
+}
+
+export function mapTimeEntry(row: any): TimeEntry {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    deliverableId: row.deliverable_id,
+    clientId: row.client_id,
+    teamMember: row.team_member,
+    hours: row.hours,
+    date: row.date,
+    notes: row.notes,
+    isBillable: row.is_billable ?? true,
+    hourlyRate: row.hourly_rate,
+    createdAt: row.created_at,
+  };
+}
+
+export function toTimeEntryRow(data: Partial<TimeEntry>) {
+  return {
+    task_id: data.taskId ?? null,
+    deliverable_id: data.deliverableId ?? null,
+    client_id: data.clientId,
+    team_member: data.teamMember,
+    hours: data.hours,
+    date: data.date,
+    notes: data.notes ?? null,
+    is_billable: data.isBillable ?? true,
+    hourly_rate: data.hourlyRate ?? null,
+  };
+}
+
+// ============================================
+// PROPOSAL TYPES
+// ============================================
+
+export interface ProposalLineItem {
+  name: string;
+  qty: number;
+  rate: number;
+}
+
+export interface ProposalSection {
+  title: string;
+  items: ProposalLineItem[];
+}
+
+export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined';
+
+export interface Proposal {
+  id: string;
+  proposalCode: string | null;
+  clientId: string;
+  clientName?: string; // from join
+  title: string;
+  status: ProposalStatus;
+  sections: ProposalSection[];
+  totalAmount: number;
+  currency: string;
+  validUntil: string | null;
+  notes: string | null;
+  viewedAt: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function mapProposal(row: any): Proposal {
+  return {
+    id: row.id,
+    proposalCode: row.proposal_code ?? null,
+    clientId: row.client_id,
+    clientName: row.client_name ?? row.clients?.company_name ?? undefined,
+    title: row.title,
+    status: row.status ?? 'draft',
+    sections: Array.isArray(row.sections) ? row.sections : [],
+    totalAmount: Number(row.total_amount ?? 0),
+    currency: row.currency ?? 'USD',
+    validUntil: row.valid_until ?? null,
+    notes: row.notes ?? null,
+    viewedAt: row.viewed_at ?? null,
+    acceptedAt: row.accepted_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// ============================================
+// RESOURCE LIBRARY TYPES
+// ============================================
+
+export interface Resource {
+  id: string;
+  name: string;
+  description: string | null;
+  fileUrl: string;
+  fileName: string;
+  fileSize: number | null;
+  fileType: string | null;
+  category: string;
+  tags: string[];
+  isPublic: boolean;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export function mapResource(row: any): Resource {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    fileUrl: row.file_url,
+    fileName: row.file_name,
+    fileSize: row.file_size,
+    fileType: row.file_type,
+    category: row.category ?? 'internal',
+    tags: row.tags ?? [],
+    isPublic: row.is_public ?? false,
+    uploadedBy: row.uploaded_by,
+    createdAt: row.created_at,
+  };
 }

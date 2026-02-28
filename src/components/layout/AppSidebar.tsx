@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, UsersRound, FileCheck, Receipt, ListTodo,
   Newspaper, Link2, Bell, BarChart3, Globe, Settings, Search, HelpCircle,
+  CalendarDays, FolderOpen, LayoutTemplate, FileText, Kanban,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -33,19 +34,24 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Clients", url: "/clients", icon: Users },
   { title: "Deliverables", url: "/deliverables", icon: FileCheck },
   { title: "Invoices", url: "/invoices", icon: Receipt },
+  { title: "Proposals", url: "/proposals", icon: FileText },
   { title: "Tasks", url: "/tasks", icon: ListTodo },
+  { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "Team", url: "/team", icon: UsersRound },
 ];
 
 const moduleNavItems = [
   { title: "Content Pipeline", url: "/content", icon: Newspaper },
+  { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "GHL Sync", url: "/ghl-sync", icon: Link2 },
   { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Client Portal", url: "/portal-admin", icon: Globe },
+  { title: "Resources", url: "/resources", icon: FolderOpen },
 ];
 
 const SHORTCUTS = [
